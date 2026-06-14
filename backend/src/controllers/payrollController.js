@@ -16,26 +16,26 @@ const getPayroll = (req, res) => {
 };
 
 const generatePayroll = (req, res) => {
-  const { month, year } = req.body;
+  const { month, year, overtime_rate = 150 } = req.body;
   try {
-    const workers = db.prepare("SELECT id, user_id, base_salary FROM workers WHERE status = 'active'").all();
+    const workers = db.prepare(`
+      SELECT w.id, w.user_id, w.base_salary FROM workers w
+      JOIN users u ON w.user_id = u.id
+      WHERE w.status = 'active' AND u.company_id = ?
+    `).all(req.user.company_id);
     
     const checkStmt = db.prepare("SELECT id FROM payroll WHERE worker_id = ? AND month = ? AND year = ?");
-    const insertStmt = db.prepare(`
-      INSERT INTO payroll (worker_id, month, year, base_salary, net_pay, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
     // Pad month for SQL matching (e.g., '5' becomes '05')
     const paddedMonth = month.toString().padStart(2, '0');
     
     const attendanceStmt = db.prepare(`
-      SELECT COUNT(*) as present_days 
+      SELECT
+        SUM(CASE WHEN status IN ('present', 'late') THEN 1 ELSE 0 END) as present_days,
+        COALESCE(SUM(CASE WHEN overtime_status = 'approved' THEN overtime_hours ELSE 0 END), 0) as approved_overtime
       FROM attendance 
       WHERE worker_id = ? 
       AND strftime('%m', date) = ? 
       AND strftime('%Y', date) = ?
-      AND status = 'present'
     `);
 
     let generatedCount = 0;
@@ -48,7 +48,9 @@ const generatePayroll = (req, res) => {
         
         // Calculate based on attendance
         const attendanceData = attendanceStmt.get(worker.user_id, paddedMonth, year.toString());
-        const presentDays = attendanceData ? attendanceData.present_days : 0;
+        const presentDays = attendanceData?.present_days || 0;
+        const overtimeHours = attendanceData?.approved_overtime || 0;
+        const overtimePay = Math.round(overtimeHours * Number(overtime_rate || 0));
         
         // Assume 26 working days for calculation if present days > 0, otherwise base salary (placeholder logic)
         // In production, we'd use actual days in month.
@@ -63,7 +65,10 @@ const generatePayroll = (req, res) => {
            if (recordCount.count > 0) netPay = 0;
         }
 
-        insertStmt.run(worker.user_id, month, year, baseSalary, netPay, 'pending');
+        db.prepare(`
+          INSERT INTO payroll (worker_id, month, year, base_salary, overtime, net_pay, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(worker.user_id, month, year, baseSalary, overtimePay, netPay + overtimePay, 'pending');
         generatedCount++;
       }
     });

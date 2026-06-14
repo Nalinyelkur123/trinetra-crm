@@ -40,6 +40,42 @@ const markAttendance = (req, res) => {
   }
 };
 
+const bulkMarkAttendance = (req, res) => {
+  const { worker_ids, status, location, date, shift_type } = req.body;
+  if (!Array.isArray(worker_ids) || !worker_ids.length || !['present', 'absent', 'half-day', 'late'].includes(status)) {
+    return res.status(400).json({ error: 'Select workers and a valid attendance status' });
+  }
+  const attendanceDate = date || new Date().toISOString().split('T')[0];
+  const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const upsert = db.prepare(`
+    INSERT INTO attendance (worker_id, date, status, location, check_in_time, shift_type)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(worker_id, date) DO UPDATE SET
+      status = excluded.status,
+      location = excluded.location,
+      check_in_time = COALESCE(attendance.check_in_time, excluded.check_in_time),
+      shift_type = excluded.shift_type
+  `);
+  db.transaction(() => {
+    worker_ids.forEach(workerId => upsert.run(
+      workerId, attendanceDate, status, location || 'Main HQ',
+      ['present', 'late'].includes(status) ? now : null, shift_type || 'General'
+    ));
+  })();
+  res.json({ message: `Attendance updated for ${worker_ids.length} worker(s)` });
+};
+
+const reviewOvertime = (req, res) => {
+  const { attendance_ids, status } = req.body;
+  if (!Array.isArray(attendance_ids) || !attendance_ids.length || !['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Select overtime entries and a valid status' });
+  }
+  const placeholders = attendance_ids.map(() => '?').join(',');
+  db.prepare(`UPDATE attendance SET overtime_status = ? WHERE id IN (${placeholders}) AND overtime_hours > 0`)
+    .run(status, ...attendance_ids);
+  res.json({ message: `Overtime ${status}` });
+};
+
 const getDailyAttendance = (req, res) => {
   const { date = new Date().toISOString().split('T')[0] } = req.query;
   const { company_id } = req.user;
@@ -61,6 +97,8 @@ const getDailyAttendance = (req, res) => {
         a.check_out_time,
         a.shift_type,
         a.overtime_hours
+        ,a.overtime_status
+        ,a.id as attendance_id
       FROM users u
       JOIN workers w ON u.id = w.user_id
       LEFT JOIN clients c ON w.client_id = c.id
@@ -75,4 +113,4 @@ const getDailyAttendance = (req, res) => {
   }
 };
 
-module.exports = { markAttendance, getDailyAttendance };
+module.exports = { markAttendance, bulkMarkAttendance, reviewOvertime, getDailyAttendance };

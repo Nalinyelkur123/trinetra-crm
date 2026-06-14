@@ -17,6 +17,9 @@ import Documents from './pages/Documents';
 import Clients from './pages/Clients';
 import Billing from './pages/Billing';
 import Expenses from './pages/Expenses';
+import Leaves from './pages/Leaves';
+import Shifts from './pages/Shifts';
+import Tasks from './pages/Tasks';
 
 // Configure Axios Defaults
 axios.defaults.baseURL = ''; // Use relative paths for proxy
@@ -62,6 +65,9 @@ function App() {
         <Route path="/admin/attendance" element={token && user?.role === 'admin' ? <Attendance /> : <Navigate to="/login" />} />
 
         <Route path="/admin/payroll" element={token && user?.role === 'admin' ? <Payroll /> : <Navigate to="/login" />} />
+        <Route path="/admin/leaves" element={token && user?.role === 'admin' ? <Leaves /> : <Navigate to="/login" />} />
+        <Route path="/admin/shifts" element={token && user?.role === 'admin' ? <Shifts /> : <Navigate to="/login" />} />
+        <Route path="/admin/tasks" element={token && user?.role === 'admin' ? <Tasks /> : <Navigate to="/login" />} />
         <Route path="/admin/reports" element={token && user?.role === 'admin' ? <Reports /> : <Navigate to="/login" />} />
         <Route path="/admin/documents" element={token && user?.role === 'admin' ? <Documents /> : <Navigate to="/login" />} />
         <Route path="/admin/settings" element={token && user?.role === 'admin' ? <Settings /> : <Navigate to="/login" />} />

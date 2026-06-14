@@ -49,6 +49,9 @@ const Layout = () => {
           { name: 'Expenses', icon: Activity, path: '/admin/expenses' },
           { name: 'Audit Trail', icon: Shield, path: '/admin/audit' },
           { name: 'Reports', icon: Activity, path: '/admin/reports' },
+          { name: 'Leaves', icon: Calendar, path: '/admin/leaves' },
+          { name: 'Shifts', icon: Clock, path: '/admin/shifts' },
+          { name: 'Tasks', icon: Briefcase, path: '/admin/tasks' },
           { name: 'Settings', icon: Settings, path: '/admin/settings' },
         ];
       case 'supervisor':

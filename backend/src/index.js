@@ -7,7 +7,7 @@ const { initDb } = require('./config/db');
 
 const authRoutes = require('./routes/auth');
 const workerRoutes = require('./routes/workers');
-const { markAttendance, getDailyAttendance } = require('./controllers/attendanceController');
+const { markAttendance, bulkMarkAttendance, reviewOvertime, getDailyAttendance } = require('./controllers/attendanceController');
 const payrollRoutes = require('./routes/payroll');
 const dashboardRoutes = require('./routes/dashboard');
 const recruitmentRoutes = require('./routes/recruitment');
@@ -16,6 +16,13 @@ const clientRoutes = require('./routes/clients');
 const invoiceRoutes = require('./routes/invoices');
 const expenseRoutes = require('./routes/expenses');
 const reportRoutes = require('./routes/reports');
+const leaveRoutes = require('./routes/leaves');
+const shiftRoutes = require('./routes/shifts');
+const taskRoutes = require('./routes/tasks');
+const notificationRoutes = require('./routes/notifications');
+const performanceRoutes = require('./routes/performance');
+const monitoringRoutes = require('./routes/monitoring');
+const messageRoutes = require('./routes/messages');
 const { authenticateToken } = require('./middleware/auth');
 const auditLogger = require('./middleware/auditLogger');
 
@@ -34,6 +41,8 @@ app.use(auditLogger);
 // SUPER DIRECT ATTENDANCE ROUTE (Experimental Bypass)
 app.get('/api/attendance', authenticateToken, getDailyAttendance);
 app.post('/api/attendance', authenticateToken, markAttendance);
+app.post('/api/attendance/bulk', authenticateToken, bulkMarkAttendance);
+app.put('/api/attendance/overtime/review', authenticateToken, reviewOvertime);
 
 // Unified API Router
 const apiRouter = express.Router();
@@ -66,6 +75,13 @@ apiRouter.use('/clients', clientRoutes);
 apiRouter.use('/invoices', invoiceRoutes);
 apiRouter.use('/expenses', expenseRoutes);
 apiRouter.use('/reports', reportRoutes);
+apiRouter.use('/leaves', leaveRoutes);
+apiRouter.use('/shifts', shiftRoutes);
+apiRouter.use('/tasks', taskRoutes);
+apiRouter.use('/notifications', notificationRoutes);
+apiRouter.use('/performance', performanceRoutes);
+apiRouter.use('/monitoring', monitoringRoutes);
+apiRouter.use('/messages', messageRoutes);
 
 // System Routes
 apiRouter.get('/audit', authenticateToken, getAuditLogs);

@@ -265,12 +265,15 @@ const initDb = () => {
       location TEXT,
       shift_type TEXT DEFAULT 'General',
       overtime_hours REAL DEFAULT 0,
+      overtime_status TEXT DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (worker_id) REFERENCES users(id)
     )
   `).run();
   try { db.prepare("ALTER TABLE attendance ADD COLUMN shift_type TEXT DEFAULT 'General'").run(); } catch (e) {}
   try { db.prepare("ALTER TABLE attendance ADD COLUMN overtime_hours REAL DEFAULT 0").run(); } catch (e) {}
+  try { db.prepare("ALTER TABLE attendance ADD COLUMN overtime_status TEXT DEFAULT 'pending'").run(); } catch (e) {}
+  try { db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_worker_date ON attendance(worker_id, date)").run(); } catch (e) {}
 
   // Payroll
   db.prepare(`
@@ -315,6 +318,9 @@ const initDb = () => {
       FOREIGN KEY (worker_id) REFERENCES users(id)
     )
   `).run();
+  try { db.prepare("ALTER TABLE leaves ADD COLUMN reviewed_by INTEGER").run(); } catch (e) {}
+  try { db.prepare("ALTER TABLE leaves ADD COLUMN reviewed_at DATETIME").run(); } catch (e) {}
+  try { db.prepare("ALTER TABLE leaves ADD COLUMN rejection_reason TEXT").run(); } catch (e) {}
 
   // Notes/Reminders
   db.prepare(`
@@ -326,6 +332,168 @@ const initDb = () => {
       is_completed BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `).run();
+
+  // Shifts Scheduling
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS shifts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      assignment_id INTEGER,
+      shift_date DATE NOT NULL,
+      shift_type TEXT DEFAULT 'General',
+      start_time TEXT,
+      end_time TEXT,
+      status TEXT DEFAULT 'scheduled',
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (worker_id) REFERENCES users(id),
+      FOREIGN KEY (assignment_id) REFERENCES client_assignments(id)
+    )
+  `).run();
+
+  // Tasks/Work Orders
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assignment_id INTEGER NOT NULL,
+      worker_id INTEGER,
+      title TEXT NOT NULL,
+      description TEXT,
+      priority TEXT DEFAULT 'medium',
+      status TEXT DEFAULT 'pending',
+      start_date DATE,
+      due_date DATE,
+      completion_date DATE,
+      assigned_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (assignment_id) REFERENCES client_assignments(id),
+      FOREIGN KEY (worker_id) REFERENCES users(id),
+      FOREIGN KEY (assigned_by) REFERENCES users(id)
+    )
+  `).run();
+
+  // Notifications
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT,
+      action_url TEXT,
+      is_read BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `).run();
+
+  // Performance Tracking
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS performance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      month INTEGER,
+      year INTEGER,
+      total_days INTEGER,
+      present_days INTEGER,
+      absent_days INTEGER,
+      late_days INTEGER,
+      attendance_percentage REAL,
+      punctuality_score REAL,
+      tasks_completed INTEGER,
+      performance_rating TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (worker_id) REFERENCES users(id)
+    )
+  `).run();
+  try { db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_performance_worker_period ON performance(worker_id, month, year)").run(); } catch (e) {}
+
+  // Site Monitoring
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS site_monitoring (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assignment_id INTEGER NOT NULL,
+      supervisor_id INTEGER,
+      supervisor_notes TEXT,
+      worker_count INTEGER,
+      safety_score INTEGER,
+      quality_score INTEGER,
+      monitoring_date DATE,
+      latitude REAL,
+      longitude REAL,
+      client_feedback TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (assignment_id) REFERENCES client_assignments(id),
+      FOREIGN KEY (supervisor_id) REFERENCES users(id)
+    )
+  `).run();
+  try { db.prepare("ALTER TABLE site_monitoring ADD COLUMN latitude REAL").run(); } catch (e) {}
+  try { db.prepare("ALTER TABLE site_monitoring ADD COLUMN longitude REAL").run(); } catch (e) {}
+  try { db.prepare("ALTER TABLE site_monitoring ADD COLUMN client_feedback TEXT").run(); } catch (e) {}
+
+  // Messages/Communication Hub
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sender_id INTEGER NOT NULL,
+      receiver_id INTEGER,
+      group_id TEXT,
+      message_type TEXT DEFAULT 'personal',
+      content TEXT NOT NULL,
+      is_read BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sender_id) REFERENCES users(id),
+      FOREIGN KEY (receiver_id) REFERENCES users(id)
+    )
+  `).run();
+
+  // Holiday Calendar
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS holidays (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      holiday_date DATE NOT NULL,
+      category TEXT,
+      company_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (company_id) REFERENCES companies(id)
+    )
+  `).run();
+
+  // Leave Balance
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS leave_balance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      year INTEGER,
+      casual_leaves INTEGER DEFAULT 12,
+      sick_leaves INTEGER DEFAULT 8,
+      annual_leaves INTEGER DEFAULT 20,
+      leaves_used_casual INTEGER DEFAULT 0,
+      leaves_used_sick INTEGER DEFAULT 0,
+      leaves_used_annual INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (worker_id) REFERENCES users(id)
+    )
+  `).run();
+  try { db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_leave_balance_worker_year ON leave_balance(worker_id, year)").run(); } catch (e) {}
+
+  // Discipline records used by performance reviews
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS discipline_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      record_date DATE NOT NULL,
+      category TEXT NOT NULL,
+      severity TEXT DEFAULT 'warning',
+      notes TEXT,
+      created_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (worker_id) REFERENCES users(id),
+      FOREIGN KEY (created_by) REFERENCES users(id)
     )
   `).run();
 };
