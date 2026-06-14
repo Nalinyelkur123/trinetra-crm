@@ -194,16 +194,14 @@ const Login = () => {
                 className="p-3 rounded-xl bg-card/50 border border-border/30 hover:border-primary/30 transition-all"
               >
                 <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">Administrator</p>
-                <code className="text-xs text-primary font-bold">admin@trinetra.com</code>
-                <p className="text-[9px] text-muted-foreground font-semibold mt-1">Key: admin123</p>
+                <p className="text-[9px] text-muted-foreground font-semibold mt-1">Contact your administrator for credentials</p>
               </motion.div>
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 className="p-3 rounded-xl bg-card/50 border border-border/30 hover:border-primary/30 transition-all"
               >
                 <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">Personnel Hub</p>
-                <code className="text-xs text-indigo-500 font-bold">suresh@trinetra.com</code>
-                <p className="text-[9px] text-muted-foreground font-semibold mt-1">Key: worker123</p>
+                <p className="text-[9px] text-muted-foreground font-semibold mt-1">Contact your administrator for credentials</p>
               </motion.div>
             </div>
           </motion.div>

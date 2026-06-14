@@ -31,9 +31,13 @@ const login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET not configured');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
     const token = jwt.sign(
       { id: user.id, role: user.role, company_id: user.company_id },
-      process.env.JWT_SECRET || 'secret',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 

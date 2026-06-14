@@ -4,8 +4,8 @@ const { db, initDb } = require('./config/db');
 async function seed() {
   initDb();
 
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  const workerPassword = await bcrypt.hash('worker123', 10);
+  const adminPassword = await bcrypt.hash(process.env.ADMIN_SEED_PASSWORD || 'ChangeMe@123', 10);
+  const workerPassword = await bcrypt.hash(process.env.WORKER_SEED_PASSWORD || 'ChangeMe@456', 10);
 
   try {
     // Create a dummy company
