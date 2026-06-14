@@ -9,8 +9,7 @@
     "backend": {
       "entrypoint": "backend/src/index.js",
       "routePrefix": "/api",
-      "framework": "express",
-      "includeFiles": "backend/database.sqlite"
+      "framework": "express"
     }
   }
 }
