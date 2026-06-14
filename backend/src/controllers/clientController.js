@@ -1,73 +1,94 @@
-const { db } = require('../config/db');
+const Client = require('../models/Client');
+const Worker = require('../models/Worker');
+const User = require('../models/User');
 
-const getClients = (req, res) => {
+const getClients = async (req, res) => {
   const { company_id } = req.user;
   try {
-    const clients = db.prepare(`
-      SELECT c.*, COUNT(w.id) as worker_count 
-      FROM clients c 
-      LEFT JOIN workers w ON c.id = w.client_id
-      WHERE c.company_id = ? 
-      GROUP BY c.id
-      ORDER BY c.name ASC
-    `).all(company_id);
-    res.json(clients);
+    const clients = await Client.find({ company_id }).lean();
+
+    // Get worker counts per client
+    const workerCounts = await Worker.aggregate([
+      { $match: { client_id: { $in: clients.map(c => c._id) } } },
+      { $group: { _id: '$client_id', count: { $sum: 1 } } }
+    ]);
+
+    const countMap = workerCounts.reduce((acc, curr) => {
+      acc[curr._id.toString()] = curr.count;
+      return acc;
+    }, {});
+
+    const result = clients.map(c => ({
+      ...c,
+      id: c._id,
+      worker_count: countMap[c._id.toString()] || 0
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const getClientWorkforce = (req, res) => {
+const getClientWorkforce = async (req, res) => {
   const { id } = req.params;
   try {
-    const workforce = db.prepare(`
-      SELECT u.name, u.phone, w.job_role, w.shift_start, w.shift_end, w.working_hours, ca.name as assignment_name
-      FROM workers w
-      JOIN users u ON w.user_id = u.id
-      LEFT JOIN client_assignments ca ON w.assignment_id = ca.id
-      WHERE w.client_id = ?
-    `).all(id);
+    const workers = await Worker.find({ client_id: id })
+      .populate('user_id', 'name phone')
+      .populate('assignment_id', 'name')
+      .lean();
+
+    const workforce = workers.map(w => ({
+      name: w.user_id?.name,
+      phone: w.user_id?.phone,
+      job_role: w.job_role,
+      shift_start: w.shift_start,
+      shift_end: w.shift_end,
+      working_hours: w.working_hours,
+      assignment_name: w.assignment_id?.name || null
+    }));
+
     res.json(workforce);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const createClient = (req, res) => {
+const createClient = async (req, res) => {
   const { name, email, phone, contact_person, address, contract_terms, billing_rate, gst_number, agreement_start, agreement_end, payment_terms, status, shift_start, shift_end, working_hours } = req.body;
   const { company_id } = req.user;
   try {
-    const stmt = db.prepare(`
-      INSERT INTO clients (name, email, phone, contact_person, address, contract_terms, billing_rate, gst_number, agreement_start, agreement_end, payment_terms, status, shift_start, shift_end, working_hours, company_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(name, email, phone, contact_person, address, contract_terms, billing_rate, gst_number, agreement_start, agreement_end, payment_terms, status || 'active', shift_start || '09:00', shift_end || '18:00', working_hours || 8.0, company_id);
-    res.status(201).json({ id: result.lastInsertRowid, name });
+    const client = new Client({
+      name, email, phone, contact_person, address, contract_terms, billing_rate, gst_number,
+      agreement_start, agreement_end, payment_terms,
+      status: status || 'active',
+      shift_start: shift_start || '09:00',
+      shift_end: shift_end || '18:00',
+      working_hours: working_hours || 8.0,
+      company_id
+    });
+    await client.save();
+    res.status(201).json({ id: client._id, name });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const updateClient = (req, res) => {
+const updateClient = async (req, res) => {
   const { id } = req.params;
-  const { name, email, phone, contact_person, address, contract_terms, billing_rate, gst_number, agreement_start, agreement_end, payment_terms, status, shift_start, shift_end, working_hours } = req.body;
+  const updateData = req.body;
   try {
-    const stmt = db.prepare(`
-      UPDATE clients 
-      SET name = ?, email = ?, phone = ?, contact_person = ?, address = ?, contract_terms = ?, billing_rate = ?, gst_number = ?, agreement_start = ?, agreement_end = ?, payment_terms = ?, status = ?, shift_start = ?, shift_end = ?, working_hours = ?
-      WHERE id = ?
-    `);
-    stmt.run(name, email, phone, contact_person, address, contract_terms, billing_rate, gst_number, agreement_start, agreement_end, payment_terms, status, shift_start, shift_end, working_hours, id);
+    await Client.findByIdAndUpdate(id, updateData);
     res.json({ message: 'Client updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const deleteClient = (req, res) => {
+const deleteClient = async (req, res) => {
   const { id } = req.params;
   try {
-    db.prepare('DELETE FROM clients WHERE id = ?').run(id);
+    await Client.findByIdAndDelete(id);
     res.json({ message: 'Client deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

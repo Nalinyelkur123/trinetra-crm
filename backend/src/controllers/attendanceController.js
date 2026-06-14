@@ -1,113 +1,150 @@
-const { db } = require('../config/db');
+const User = require('../models/User');
+const Worker = require('../models/Worker');
+const Attendance = require('../models/Attendance');
 
-const markAttendance = (req, res) => {
+const markAttendance = async (req, res) => {
   const { worker_id, status, location, date: reqDate, shift_type, overtime_hours } = req.body;
   const date = reqDate || new Date().toISOString().split('T')[0];
 
   try {
-    // Fetch worker shift details
-    const workerDetails = db.prepare('SELECT shift_start, shift_end FROM workers WHERE user_id = ?').get(worker_id);
+    const workerDetails = await Worker.findOne({ user_id: worker_id }).lean();
     const currentTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
+
     let finalStatus = status;
-    // Auto-calculate late status if not specified and present
     if (status === 'present' && workerDetails?.shift_start) {
       if (currentTime > workerDetails.shift_start) {
         finalStatus = 'late';
       }
     }
 
-    const existing = db.prepare('SELECT id, check_in_time FROM attendance WHERE worker_id = ? AND date = ?').get(worker_id, date);
+    const checkInTime = (finalStatus === 'present' || finalStatus === 'late') ? new Date() : null; // Using JS Date for Mongoose
 
-    if (existing) {
-      const updateStmt = db.prepare(`
-        UPDATE attendance 
-        SET status = ?, location = ?, check_in_time = COALESCE(check_in_time, ?), shift_type = ?, overtime_hours = ?
-        WHERE id = ?
-      `);
-      updateStmt.run(finalStatus, location || 'Main HQ', (finalStatus === 'present' || finalStatus === 'late') ? currentTime : null, shift_type || 'General', overtime_hours || 0, existing.id);
-      res.json({ message: 'Attendance updated', status: finalStatus });
-    } else {
-      const insertStmt = db.prepare(`
-        INSERT INTO attendance (worker_id, date, status, location, check_in_time, shift_type, overtime_hours)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-      insertStmt.run(worker_id, date, finalStatus, location || 'Main HQ', (finalStatus === 'present' || finalStatus === 'late') ? currentTime : null, shift_type || 'General', overtime_hours || 0);
-      res.status(201).json({ message: 'Attendance marked', status: finalStatus });
-    }
+    await Attendance.findOneAndUpdate(
+      { worker_id, date: new Date(date) },
+      {
+        status: finalStatus,
+        location: location || 'Main HQ',
+        // Only set check_in_time if not already set, achieved via $setOnInsert or in logic:
+        $setOnInsert: { check_in_time: checkInTime },
+        shift_type: shift_type || 'General',
+        overtime_hours: overtime_hours || 0
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // If we wanted to preserve check_in_time on update, $setOnInsert handles it during upsert.
+    // But if it exists, we might need a separate logic. For simplicity, we just use Mongoose update.
+
+    res.json({ message: 'Attendance marked/updated', status: finalStatus });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const bulkMarkAttendance = (req, res) => {
+const bulkMarkAttendance = async (req, res) => {
   const { worker_ids, status, location, date, shift_type } = req.body;
   if (!Array.isArray(worker_ids) || !worker_ids.length || !['present', 'absent', 'half-day', 'late'].includes(status)) {
     return res.status(400).json({ error: 'Select workers and a valid attendance status' });
   }
-  const attendanceDate = date || new Date().toISOString().split('T')[0];
-  const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const upsert = db.prepare(`
-    INSERT INTO attendance (worker_id, date, status, location, check_in_time, shift_type)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(worker_id, date) DO UPDATE SET
-      status = excluded.status,
-      location = excluded.location,
-      check_in_time = COALESCE(attendance.check_in_time, excluded.check_in_time),
-      shift_type = excluded.shift_type
-  `);
-  db.transaction(() => {
-    worker_ids.forEach(workerId => upsert.run(
-      workerId, attendanceDate, status, location || 'Main HQ',
-      ['present', 'late'].includes(status) ? now : null, shift_type || 'General'
-    ));
-  })();
-  res.json({ message: `Attendance updated for ${worker_ids.length} worker(s)` });
+  const attendanceDate = date ? new Date(date) : new Date(new Date().toISOString().split('T')[0]);
+  const checkInTime = ['present', 'late'].includes(status) ? new Date() : null;
+
+  try {
+    const ops = worker_ids.map(workerId => ({
+      updateOne: {
+        filter: { worker_id: workerId, date: attendanceDate },
+        update: {
+          $set: {
+            status,
+            location: location || 'Main HQ',
+            shift_type: shift_type || 'General'
+          },
+          $setOnInsert: {
+            check_in_time: checkInTime
+          }
+        },
+        upsert: true
+      }
+    }));
+    await Attendance.bulkWrite(ops);
+    res.json({ message: `Attendance updated for ${worker_ids.length} worker(s)` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-const reviewOvertime = (req, res) => {
+const reviewOvertime = async (req, res) => {
   const { attendance_ids, status } = req.body;
   if (!Array.isArray(attendance_ids) || !attendance_ids.length || !['approved', 'rejected'].includes(status)) {
     return res.status(400).json({ error: 'Select overtime entries and a valid status' });
   }
-  const placeholders = attendance_ids.map(() => '?').join(',');
-  db.prepare(`UPDATE attendance SET overtime_status = ? WHERE id IN (${placeholders}) AND overtime_hours > 0`)
-    .run(status, ...attendance_ids);
-  res.json({ message: `Overtime ${status}` });
+  try {
+    await Attendance.updateMany(
+      { _id: { $in: attendance_ids }, overtime_hours: { $gt: 0 } },
+      { $set: { overtime_status: status } }
+    );
+    res.json({ message: `Overtime ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-const getDailyAttendance = (req, res) => {
+const getDailyAttendance = async (req, res) => {
   const { date = new Date().toISOString().split('T')[0] } = req.query;
   const { company_id } = req.user;
 
   try {
-    const attendance = db.prepare(`
-      SELECT 
-        u.id as worker_id, 
-        u.name as worker_name, 
-        u.phone,
-        w.job_role,
-        w.shift_start,
-        w.shift_end,
-        w.working_hours,
-        c.name as client_name,
-        a.status,
-        a.location,
-        a.check_in_time,
-        a.check_out_time,
-        a.shift_type,
-        a.overtime_hours
-        ,a.overtime_status
-        ,a.id as attendance_id
-      FROM users u
-      JOIN workers w ON u.id = w.user_id
-      LEFT JOIN clients c ON w.client_id = c.id
-      LEFT JOIN attendance a ON u.id = a.worker_id AND a.date = ?
-      WHERE u.company_id = ? AND u.role = 'worker'
-      ORDER BY u.name ASC
-    `).all(date, company_id);
-    
-    res.json(attendance);
+    const targetDate = new Date(date);
+
+    // Get all workers for the company
+    const users = await User.find({ company_id, role: 'worker' }).lean();
+    const userIds = users.map(u => u._id);
+
+    const workers = await Worker.find({ user_id: { $in: userIds } })
+      .populate('client_id')
+      .lean();
+
+    const attendances = await Attendance.find({
+      worker_id: { $in: userIds },
+      date: targetDate
+    }).lean();
+
+    // Create lookup maps
+    const attendanceMap = attendances.reduce((acc, a) => {
+      acc[a.worker_id.toString()] = a;
+      return acc;
+    }, {});
+
+    const workerMap = workers.reduce((acc, w) => {
+      acc[w.user_id.toString()] = w;
+      return acc;
+    }, {});
+
+    const result = users.map(u => {
+      const w = workerMap[u._id.toString()] || {};
+      const a = attendanceMap[u._id.toString()] || {};
+
+      return {
+        worker_id: u._id,
+        worker_name: u.name,
+        phone: u.phone,
+        job_role: w.job_role,
+        shift_start: w.shift_start,
+        shift_end: w.shift_end,
+        working_hours: w.working_hours,
+        client_name: w.client_id?.name || null,
+        status: a.status || null,
+        location: a.location || null,
+        check_in_time: a.check_in_time || null,
+        check_out_time: a.check_out_time || null,
+        shift_type: a.shift_type || null,
+        overtime_hours: a.overtime_hours || 0,
+        overtime_status: a.overtime_status || null,
+        attendance_id: a._id || null
+      };
+    });
+
+    res.json(result.sort((a, b) => a.worker_name.localeCompare(b.worker_name)));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

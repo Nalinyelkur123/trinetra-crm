@@ -1,18 +1,21 @@
-const { db } = require('../config/db');
+const AuditLog = require('../models/AuditLog');
+const Setting = require('../models/Setting');
+const ClientAssignment = require('../models/ClientAssignment');
+const Client = require('../models/Client');
+const Worker = require('../models/Worker');
 
-const getAuditLogs = (req, res) => {
+const getAuditLogs = async (req, res) => {
   try {
-    const logs = db.prepare(`
-      SELECT a.id, a.action, a.timestamp, u.name as user_name, a.target_type, a.target_id
-      FROM audit_logs a
-      LEFT JOIN users u ON a.user_id = u.id
-      ORDER BY a.timestamp DESC
-      LIMIT 100
-    `).all();
-    
-    // Map status based on action type
-    const mappedLogs = logs.map(log => ({
+    const logsRaw = await AuditLog.find()
+      .sort({ timestamp: -1 })
+      .limit(100)
+      .populate('user_id', 'name')
+      .lean();
+
+    const mappedLogs = logsRaw.map(log => ({
       ...log,
+      id: log._id,
+      user_name: log.user_id?.name,
       status: log.action.includes('DELETE') ? 'DANGER' : log.action.includes('UPDATE') ? 'WARN' : 'SUCCESS',
       time: new Date(log.timestamp).toLocaleString()
     }));
@@ -23,10 +26,10 @@ const getAuditLogs = (req, res) => {
   }
 };
 
-const getSystemSettings = (req, res) => {
-  const company_id = req.user?.company_id || 1;
+const getSystemSettings = async (req, res) => {
+  const company_id = req.user?.company_id;
   try {
-    const settings = db.prepare('SELECT * FROM settings WHERE company_id = ?').get(company_id || 1);
+    const settings = await Setting.findOne({ company_id }).lean();
     if (settings) {
       settings.auto_attendance = !!settings.auto_attendance;
       settings.registry_lock = !!settings.registry_lock;
@@ -38,61 +41,82 @@ const getSystemSettings = (req, res) => {
   }
 };
 
-const getClientAssignments = (req, res) => {
-  const company_id = req.user?.company_id || 1;
+const getClientAssignments = async (req, res) => {
+  const company_id = req.user?.company_id;
   try {
-    const assignments = db.prepare(`
-      SELECT a.*, c.name as client_name, COUNT(w.id) as worker_count
-      FROM client_assignments a
-      JOIN clients c ON a.client_id = c.id
-      LEFT JOIN workers w ON a.id = w.assignment_id AND w.status = 'active'
-      WHERE a.company_id = ?
-      GROUP BY a.id
-    `).all(company_id || 1);
-    res.json(assignments);
+    const assignmentsRaw = await ClientAssignment.find({ company_id })
+      .populate('client_id', 'name')
+      .lean();
+
+    // Manually count active workers for each assignment
+    const result = await Promise.all(assignmentsRaw.map(async (a) => {
+      const worker_count = await Worker.countDocuments({ assignment_id: a._id, status: 'active' });
+      return {
+        ...a,
+        id: a._id,
+        client_name: a.client_id?.name,
+        worker_count
+      };
+    }));
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const createClientAssignment = (req, res) => {
+const createClientAssignment = async (req, res) => {
   const { client_id, name, location, description, manager_name, contact_phone, start_date, end_date, shift_start, shift_end, working_hours } = req.body;
   try {
-      const company_id = req.user.company_id || 1;
-      const stmt = db.prepare(`
-        INSERT INTO client_assignments (client_id, name, location, description, manager_name, contact_phone, start_date, end_date, status, progress, company_id, shift_start, shift_end, working_hours) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      const result = stmt.run(client_id, name, location, description, manager_name, contact_phone, start_date, end_date, 'On-track', 0, company_id, shift_start || '09:00', shift_end || '18:00', working_hours || 8.0);
-    
-    db.prepare('INSERT INTO audit_logs (action, user_id, target_type, target_id) VALUES (?, ?, ?, ?)')
-      .run('ASSIGNMENT_CREATED', req.user.id, 'ASSIGNMENT', result.lastInsertRowid);
+      const company_id = req.user?.company_id;
 
-    res.status(201).json({ id: result.lastInsertRowid, name, location });
+      const assignment = new ClientAssignment({
+        client_id, name, location, description, manager_name, contact_phone,
+        start_date, end_date, status: 'On-track', progress: 0, company_id,
+        shift_start: shift_start || '09:00', shift_end: shift_end || '18:00', working_hours: working_hours || 8.0
+      });
+      await assignment.save();
+
+    await AuditLog.create({
+      action: 'ASSIGNMENT_CREATED',
+      user_id: req.user.id,
+      target_type: 'ASSIGNMENT',
+      target_id: assignment._id.toString()
+    });
+
+    res.status(201).json({ id: assignment._id, name, location });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const assignWorkerToClient = (req, res) => {
+const assignWorkerToClient = async (req, res) => {
   const { worker_id, client_id, assignment_id } = req.body;
   try {
-    // Fetch assignment shift defaults, fallback to client defaults
-    const assignment = db.prepare('SELECT shift_start, shift_end, working_hours FROM client_assignments WHERE id = ?').get(assignment_id);
-    const client = db.prepare('SELECT shift_start, shift_end, working_hours FROM clients WHERE id = ?').get(client_id);
-    
+    const assignment = await ClientAssignment.findById(assignment_id).lean();
+    const client = await Client.findById(client_id).lean();
+
     const finalShiftStart = assignment?.shift_start || client?.shift_start || '09:00';
     const finalShiftEnd = assignment?.shift_end || client?.shift_end || '18:00';
     const finalWorkingHours = assignment?.working_hours || client?.working_hours || 8.0;
 
-    db.prepare(`
-      UPDATE workers 
-      SET client_id = ?, assignment_id = ?, shift_start = ?, shift_end = ?, working_hours = ? 
-      WHERE user_id = ?
-    `).run(client_id, assignment_id, finalShiftStart, finalShiftEnd, finalWorkingHours, worker_id);
-    
-    db.prepare('INSERT INTO audit_logs (action, user_id, target_type, target_id) VALUES (?, ?, ?, ?)')
-      .run('WORKER_DEPLOYED', req.user.id, 'WORKER', worker_id);
+    await Worker.findOneAndUpdate(
+      { user_id: worker_id },
+      {
+        client_id,
+        assignment_id,
+        shift_start: finalShiftStart,
+        shift_end: finalShiftEnd,
+        working_hours: finalWorkingHours
+      }
+    );
+
+    await AuditLog.create({
+      action: 'WORKER_DEPLOYED',
+      user_id: req.user.id,
+      target_type: 'WORKER',
+      target_id: worker_id
+    });
 
     res.json({ message: 'Worker deployed to client successfully' });
   } catch (error) {
@@ -100,20 +124,23 @@ const assignWorkerToClient = (req, res) => {
   }
 };
 
-const updateClientAssignment = (req, res) => {
+const updateClientAssignment = async (req, res) => {
   const { id } = req.params;
   const { name, location, description, manager_name, contact_phone, start_date, end_date, status, progress, shift_start, shift_end, working_hours } = req.body;
   try {
-    const company_id = req.user.company_id || 1;
-    const stmt = db.prepare(`
-      UPDATE client_assignments 
-      SET name = ?, location = ?, description = ?, manager_name = ?, contact_phone = ?, start_date = ?, end_date = ?, status = ?, progress = ?, shift_start = ?, shift_end = ?, working_hours = ?
-      WHERE id = ? AND company_id = ?
-    `);
-    stmt.run(name, location, description, manager_name, contact_phone, start_date, end_date, status, progress, shift_start, shift_end, working_hours, id, company_id);
+    const company_id = req.user?.company_id;
 
-    db.prepare('INSERT INTO audit_logs (action, user_id, target_type, target_id) VALUES (?, ?, ?, ?)')
-      .run('ASSIGNMENT_UPDATED', req.user.id, 'ASSIGNMENT', id);
+    await ClientAssignment.findOneAndUpdate(
+      { _id: id, company_id },
+      { name, location, description, manager_name, contact_phone, start_date, end_date, status, progress, shift_start, shift_end, working_hours }
+    );
+
+    await AuditLog.create({
+      action: 'ASSIGNMENT_UPDATED',
+      user_id: req.user.id,
+      target_type: 'ASSIGNMENT',
+      target_id: id
+    });
 
     res.json({ message: 'Assignment updated successfully' });
   } catch (error) {
@@ -121,35 +148,26 @@ const updateClientAssignment = (req, res) => {
   }
 };
 
-const updateSystemSettings = (req, res) => {
-  const { 
-    company_name, timezone, auto_attendance, 
-    registry_lock, retention_period, 
-    notification_email, backup_frequency, security_2fa 
+const updateSystemSettings = async (req, res) => {
+  const {
+    company_name, timezone, auto_attendance,
+    registry_lock, retention_period,
+    notification_email, backup_frequency, security_2fa
   } = req.body;
-  const company_id = req.user?.company_id || 1;
+  const company_id = req.user?.company_id;
   try {
-    const stmt = db.prepare(`
-      INSERT INTO settings (
-        company_name, timezone, auto_attendance, 
-        registry_lock, retention_period, 
-        notification_email, backup_frequency, security_2fa, company_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(company_id) DO UPDATE SET
-        company_name = excluded.company_name,
-        timezone = excluded.timezone,
-        auto_attendance = excluded.auto_attendance,
-        registry_lock = excluded.registry_lock,
-        retention_period = excluded.retention_period,
-        notification_email = excluded.notification_email,
-        backup_frequency = excluded.backup_frequency,
-        security_2fa = excluded.security_2fa
-    `);
-    stmt.run(
-      company_name, timezone, auto_attendance ? 1 : 0, 
-      registry_lock ? 1 : 0, retention_period || '365 Days', 
-      notification_email, backup_frequency || 'Daily', security_2fa ? 1 : 0,
-      company_id
+    await Setting.findOneAndUpdate(
+      { company_id },
+      {
+        company_name, timezone,
+        auto_attendance: auto_attendance ? true : false,
+        registry_lock: registry_lock ? true : false,
+        retention_period: retention_period || '365 Days',
+        notification_email,
+        backup_frequency: backup_frequency || 'Daily',
+        security_2fa: security_2fa ? true : false
+      },
+      { upsert: true, new: true }
     );
     res.json({ message: 'System configuration updated successfully' });
   } catch (error) {
@@ -157,13 +175,12 @@ const updateSystemSettings = (req, res) => {
   }
 };
 
-module.exports = { 
-  getAuditLogs, 
-  getSystemSettings, 
-  getClientAssignments, 
-  createClientAssignment, 
+module.exports = {
+  getAuditLogs,
+  getSystemSettings,
+  getClientAssignments,
+  createClientAssignment,
   assignWorkerToClient,
   updateSystemSettings,
   updateClientAssignment
 };
-
