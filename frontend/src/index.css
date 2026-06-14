@@ -1,0 +1,84 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@layer base {
+  :root {
+    --background: 210 40% 98%; /* Light Slate-50 */
+    --foreground: 222 47% 11%; /* Slate-950 */
+    --card: 0 0% 100%; /* Pure White */
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%; /* Blue-600 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 91%; /* Slate-200 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 47%; /* Slate-500 */
+    --border: 214 32% 91%;
+    --input: 0 0% 100%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 4%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 6%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20% 65%;
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease;
+  }
+}
+
+@layer components {
+  .card-premium {
+    @apply bg-card border border-border rounded-3xl shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 bg-primary text-primary-foreground font-bold rounded-2xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-secondary/50 text-foreground font-bold rounded-2xl hover:bg-secondary active:scale-95 transition-all flex items-center justify-center border border-border/50;
+  }
+
+  .input-field {
+    @apply bg-white dark:bg-secondary/10 border border-border focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-2xl py-4 px-6 outline-none transition-all placeholder:text-muted-foreground/30 shadow-sm text-sm font-medium;
+  }
+
+  .caption {
+    @apply text-[11px] font-bold uppercase tracking-widest text-muted-foreground;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm;
+  }
+
+  .modal-content {
+    @apply relative w-full bg-background rounded-[2.5rem] border border-border shadow-2xl;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full hover:bg-muted-foreground/30 transition-all;
+  }
+}

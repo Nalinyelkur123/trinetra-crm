@@ -1,0 +1,93 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { initDb } = require('./config/db');
+
+const authRoutes = require('./routes/auth');
+const workerRoutes = require('./routes/workers');
+const { markAttendance, getDailyAttendance } = require('./controllers/attendanceController');
+const payrollRoutes = require('./routes/payroll');
+const dashboardRoutes = require('./routes/dashboard');
+const recruitmentRoutes = require('./routes/recruitment');
+const documentRoutes = require('./routes/documents');
+const clientRoutes = require('./routes/clients');
+const invoiceRoutes = require('./routes/invoices');
+const expenseRoutes = require('./routes/expenses');
+const reportRoutes = require('./routes/reports');
+const { authenticateToken } = require('./middleware/auth');
+const auditLogger = require('./middleware/auditLogger');
+
+const app = express();
+const PORT = process.env.PORT || 5001;
+
+// Initialize Database
+initDb();
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(auditLogger);
+
+// SUPER DIRECT ATTENDANCE ROUTE (Experimental Bypass)
+app.get('/api/attendance', authenticateToken, getDailyAttendance);
+app.post('/api/attendance', authenticateToken, markAttendance);
+
+// Unified API Router
+const apiRouter = express.Router();
+
+// Rate limiting for API
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200 
+});
+apiRouter.use(limiter);
+
+const { 
+  getAuditLogs, 
+  getSystemSettings, 
+  getClientAssignments, 
+  createClientAssignment, 
+  assignWorkerToClient,
+  updateSystemSettings,
+  updateClientAssignment
+} = require('./controllers/systemController');
+
+// Register Sub-routes
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/workers', workerRoutes);
+apiRouter.use('/payroll', payrollRoutes);
+apiRouter.use('/dashboard', dashboardRoutes);
+apiRouter.use('/recruitment', recruitmentRoutes);
+apiRouter.use('/documents', documentRoutes);
+apiRouter.use('/clients', clientRoutes);
+apiRouter.use('/invoices', invoiceRoutes);
+apiRouter.use('/expenses', expenseRoutes);
+apiRouter.use('/reports', reportRoutes);
+
+// System Routes
+apiRouter.get('/audit', authenticateToken, getAuditLogs);
+apiRouter.get('/settings', authenticateToken, getSystemSettings);
+apiRouter.post('/settings', authenticateToken, updateSystemSettings);
+apiRouter.get('/assignments', authenticateToken, getClientAssignments);
+apiRouter.post('/assignments', authenticateToken, createClientAssignment);
+apiRouter.put('/assignments/:id', authenticateToken, updateClientAssignment);
+apiRouter.post('/assignments/deploy', authenticateToken, assignWorkerToClient);
+
+// Apply API Router
+app.use('/api', apiRouter);
+
+// Health Check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date(), port: PORT });
+});
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Trinetra Backend Active' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
