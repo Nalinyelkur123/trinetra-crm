@@ -77,87 +77,136 @@ const Login = () => {
         </div>
 
         {/* Login Form Side */}
-        <div className={`p-10 lg:p-16 flex flex-col justify-center bg-card`}>
-          <div className="mb-12">
+        <div className={`p-10 lg:p-16 flex flex-col justify-center bg-card relative overflow-hidden`}>
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/5 blur-[100px] rounded-full -z-10" />
+          
+          <motion.div 
+            className="mb-12"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             <h2 className="text-3xl font-black mb-2 tracking-tight text-foreground">Access Portal</h2>
             <p className="text-muted-foreground font-medium text-sm">Sign in to engage the tactical management grid.</p>
-          </div>
+          </motion.div>
 
           {error && (
             <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl text-destructive text-xs font-bold flex items-center gap-3"
+              initial={{ opacity: 0, x: -10, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -10, scale: 0.95 }}
+              className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-3 backdrop-blur-sm"
             >
               <AlertCircle size={16} />
               {error}
             </motion.div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
+          <motion.form 
+            onSubmit={handleLogin} 
+            className="space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <motion.div 
+              className="space-y-2"
+              whileHover={{ scale: 1.01 }}
+            >
               <label className="caption ml-1">Login Identity</label>
-              <div className="relative">
-                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <input
+              <div className="relative group">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                <motion.input
                   type="text"
                   required
                   className="w-full input-field pl-12"
                   placeholder="Phone or Email"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
+                  whileFocus={{ boxShadow: '0 0 20px rgba(59, 130, 246, 0.1)' }}
                 />
               </div>
-            </div>
+            </motion.div>
 
-            <div className="space-y-2">
+            <motion.div 
+              className="space-y-2"
+              whileHover={{ scale: 1.01 }}
+            >
               <div className="flex justify-between items-center px-1">
                 <label className="caption">Access Key</label>
-                <button type="button" className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">Forgot Key?</button>
+                <motion.button 
+                  type="button" 
+                  className="text-[10px] font-bold text-primary uppercase tracking-widest hover:text-primary/80 transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Forgot Key?
+                </motion.button>
               </div>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <input
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                <motion.input
                   type="password"
                   required
                   className="w-full input-field pl-12"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  whileFocus={{ boxShadow: '0 0 20px rgba(59, 130, 246, 0.1)' }}
                 />
               </div>
-            </div>
+            </motion.div>
 
-            <button
+            <motion.button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-4 flex items-center justify-center gap-3 group"
+              className="btn-primary w-full py-4 flex items-center justify-center gap-3 group relative overflow-hidden"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : (
+              {loading ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity }}>
+                  <Loader2 size={20} />
+                </motion.div>
+              ) : (
                 <>
                   Engage Command System
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  <motion.div animate={{ x: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                    <ArrowRight size={18} />
+                  </motion.div>
                 </>
               )}
-            </button>
-          </form>
+            </motion.button>
+          </motion.form>
 
-          {/* Demo Details */}
-           <div className={`mt-12 p-6 rounded-3xl bg-secondary/50 border border-border`}>
+          {/* Demo Details - Enhanced */}
+          <motion.div 
+            className={`mt-12 p-6 rounded-3xl bg-gradient-to-br from-secondary/50 to-primary/5 border border-border/50 backdrop-blur-sm hover:border-primary/20 transition-all`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            whileHover={{ y: -4 }}
+          >
             <h4 className="caption mb-4">Credentials Ledger</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="p-3 rounded-xl bg-card/50 border border-border/30 hover:border-primary/30 transition-all"
+              >
                 <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">Administrator</p>
                 <code className="text-xs text-primary font-bold">admin@trinetra.com</code>
                 <p className="text-[9px] text-muted-foreground font-semibold mt-1">Key: admin123</p>
-              </div>
-              <div>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="p-3 rounded-xl bg-card/50 border border-border/30 hover:border-primary/30 transition-all"
+              >
                 <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">Personnel Hub</p>
                 <code className="text-xs text-indigo-500 font-bold">suresh@trinetra.com</code>
                 <p className="text-[9px] text-muted-foreground font-semibold mt-1">Key: worker123</p>
-              </div>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </motion.div>
     </div>

@@ -87,108 +87,138 @@ const Layout = () => {
         />
       )}
 
-      {/* Side Navbar - Solid Professional Design */}
+      {/* Side Navbar - Enhanced Professional Design */}
       <motion.aside 
         initial={false}
         animate={{ width: sidebarOpen ? 260 : 80 }}
-        className={`bg-card border-r border-border fixed h-full z-40 flex flex-col shadow-sm transition-transform duration-300 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`bg-card border-r border-border fixed h-full z-40 flex flex-col shadow-sm hover:shadow-md transition-all duration-300 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="h-20 px-6 flex items-center justify-between border-b border-border shrink-0">
+        <div className="h-20 px-6 flex items-center justify-between border-b border-border/50 shrink-0 bg-gradient-to-r from-primary/5 to-transparent">
           <AnimatePresence>
             {sidebarOpen && (
               <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.2 }}
                 className="flex items-center gap-2"
               >
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
                   <Briefcase size={18} className="text-white" />
                 </div>
-                <span className="text-base font-black tracking-tighter">TRINETRA</span>
+                <span className="text-base font-black tracking-tighter bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">TRINETRA</span>
               </motion.div>
             )}
           </AnimatePresence>
-          <button 
+          <motion.button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 hover:bg-secondary/50 rounded-lg transition-all text-muted-foreground hover:text-foreground"
           >
             {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
+          </motion.button>
         </div>
 
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
             <Link key={item.path} to={item.path} onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}>
-              <div
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
+              <motion.div
+                whileHover={{ x: 4 }}
+                whileTap={{ scale: 0.98 }}
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${
                   location.pathname === item.path 
-                    ? 'bg-primary text-white shadow-md' 
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                    ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg shadow-primary/20' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50 group'
                 }`}
               >
-                <item.icon size={20} className={location.pathname === item.path ? 'text-white' : ''} />
+                <motion.div
+                  animate={{ rotate: location.pathname === item.path ? 360 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <item.icon size={20} className={location.pathname === item.path ? 'text-white' : 'group-hover:text-primary'} />
+                </motion.div>
                 {sidebarOpen && <span className="font-bold text-sm whitespace-nowrap">{item.name}</span>}
-              </div>
+              </motion.div>
             </Link>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border bg-secondary/5">
-          <button 
+        <div className="p-4 border-t border-border/50 bg-gradient-to-t from-secondary/5 to-transparent">
+          <motion.button 
             onClick={logout}
-            className="w-full flex items-center gap-4 px-4 py-3 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full flex items-center gap-4 px-4 py-3 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-xl transition-all duration-200"
           >
             <LogOut size={20} />
             {sidebarOpen && <span className="font-bold text-sm">Sign Out</span>}
-          </button>
+          </motion.button>
         </div>
       </motion.aside>
 
       {/* Content Area */}
       <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'md:ml-[260px]' : 'md:ml-[80px]'}`}>
-        <header className="h-20 bg-card border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-20 shadow-sm">
+        <header className="h-20 bg-card/95 border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-20 shadow-sm hover:shadow-md transition-shadow duration-300 backdrop-blur-sm">
           <div className="flex items-center gap-3 md:gap-6">
-            <button 
+            <motion.button 
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-secondary text-muted-foreground"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="md:hidden p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
             >
               <Menu size={20} />
-            </button>
-            <p className="caption hidden md:block">Tactical Center</p>
-            <div className="relative hidden sm:block">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-               <input 
-                  type="text" 
-                  placeholder="Search system..." 
-                  className="bg-secondary/30 border border-border/50 rounded-xl py-2.5 pl-10 pr-4 text-sm w-48 md:w-64 focus:w-80 transition-all outline-none focus:border-primary"
-               />
-            </div>
+            </motion.button>
+            <p className="caption hidden md:block">Command Center</p>
+            <motion.div 
+              className="relative hidden sm:block"
+              whileFocus={{ scale: 1.02 }}
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={16} />
+              <motion.input 
+                type="text" 
+                placeholder="Search system..." 
+                className="bg-secondary/30 border border-border/50 rounded-xl py-2.5 pl-10 pr-4 text-sm w-48 md:w-64 focus:w-80 transition-all outline-none focus:border-primary focus:shadow-md focus:bg-secondary/50"
+                whileFocus={{ boxShadow: '0 0 20px rgba(59, 130, 246, 0.1)' }}
+              />
+            </motion.div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 pr-4 border-r border-border">
               <ThemeToggle />
-              <button className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-all">
+              <motion.button 
+                whileHover={{ scale: 1.05, rotate: 10 }}
+                whileTap={{ scale: 0.95 }}
+                className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-all hover:shadow-md"
+              >
                 <Bell size={20} />
-              </button>
+              </motion.button>
             </div>
             
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold leading-none">{user?.name || 'Admin'}</p>
-                <p className="text-[10px] text-primary font-black uppercase mt-1">Verified</p>
+                <p className="text-[10px] bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent font-black uppercase mt-1">Verified</p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black shadow-lg shadow-primary/20">
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-black shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+              >
                 {user?.name?.[0] || 'A'}
-              </div>
+              </motion.div>
             </div>
           </div>
         </header>
 
-        <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-[calc(100vh-80px)]">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-[calc(100vh-80px)]"
+        >
           <Outlet />
-        </div>
+        </motion.div>
       </main>
     </div>
   );

@@ -14,28 +14,45 @@ import axios from 'axios';
 const COLORS = ['#2563eb', '#6366f1', '#f43f5e', '#10b981'];
 
 const StatCard = ({ title, value, icon: Icon, change, trend, loading }) => (
-  <motion.div whileHover={{ y: -4 }} className="card-premium p-6">
+  <motion.div 
+    whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0, 0, 0, 0.08)' }} 
+    transition={{ duration: 0.2 }}
+    className="card-premium p-6 group"
+  >
     {loading ? (
       <div className="animate-pulse space-y-4">
-        <div className="h-10 w-10 bg-secondary rounded-xl" />
-        <div className="h-4 w-24 bg-secondary rounded" />
-        <div className="h-8 w-16 bg-secondary rounded" />
+        <div className="h-10 w-10 bg-secondary/50 rounded-xl" />
+        <div className="h-4 w-24 bg-secondary/50 rounded" />
+        <div className="h-8 w-16 bg-secondary/50 rounded" />
       </div>
     ) : (
       <>
         <div className="flex justify-between items-start">
-          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-            <Icon size={20} />
-          </div>
+          <motion.div 
+            className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary group-hover:from-primary/30 group-hover:to-primary/10 transition-all"
+            whileHover={{ scale: 1.05, rotate: 5 }}
+          >
+            <Icon size={22} />
+          </motion.div>
           {change && (
-            <div className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
+            <motion.div 
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-lg ${trend === 'up' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'}`}
+            >
               {trend === 'up' ? <ArrowUp size={10} /> : <ArrowDown size={10} />} {change}
-            </div>
+            </motion.div>
           )}
         </div>
-        <div className="mt-4">
-          <p className="caption">{title}</p>
-          <p className="text-2xl font-black mt-1 text-foreground">{value}</p>
+        <div className="mt-5">
+          <p className="caption text-muted-foreground/70">{title}</p>
+          <motion.p 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-3xl font-black mt-2 text-foreground"
+          >
+            {value}
+          </motion.p>
         </div>
       </>
     )}
@@ -78,49 +95,78 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight">Work Hub</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-medium">Comprehensive workforce management & operational overview</p>
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-border/50"
+      >
+        <motion.div
+          whileHover={{ x: 5 }}
+          transition={{ duration: 0.2 }}
+        >
+          <h1 className="heading-lg">Work Hub</h1>
+          <p className="text-sm text-muted-foreground mt-2 font-medium max-w-lg">Comprehensive workforce management & operational oversight with real-time insights</p>
+        </motion.div>
+        <div className="flex gap-3 flex-wrap">
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn-secondary px-5 py-2.5 text-xs gap-2"
+          >
+            <Filter size={16} /> Filters
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn-primary px-5 py-2.5 text-xs gap-2"
+          >
+            <ShieldCheck size={18} /> Audit Trail
+          </motion.button>
         </div>
-        <div className="flex gap-3">
-          <button className="btn-secondary px-5 py-2.5 text-xs shadow-sm">
-            <Filter size={16} className="mr-2" /> Filters
-          </button>
-          <button className="btn-primary px-5 py-2.5 text-xs">
-            <ShieldCheck size={18} className="mr-2" /> Audit Trail
-          </button>
-        </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Personnel" 
-          value={stats?.summary?.totalWorkers ?? '0'} 
-          icon={Users} 
-          loading={loading}
-        />
-        <StatCard 
-          title="Active Deployment" 
-          value={stats?.summary?.activeWorkers ?? '0'} 
-          icon={Briefcase} 
-          change={stats ? `${stats.summary.deploymentRate}%` : null}
-          trend="up"
-          loading={loading}
-        />
-        <StatCard 
-          title="Attendance Today" 
-          value={stats?.summary?.todayAttendance?.present ?? '0'} 
-          icon={Calendar} 
-          loading={loading}
-        />
-        <StatCard 
-          title="System Integrity" 
-          value="99.9%" 
-          icon={ShieldCheck} 
-          loading={loading}
-        />
-      </div>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
+      >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <StatCard 
+            title="Total Personnel" 
+            value={stats?.summary?.totalWorkers ?? '0'} 
+            icon={Users} 
+            loading={loading}
+          />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <StatCard 
+            title="Active Deployment" 
+            value={stats?.summary?.activeWorkers ?? '0'} 
+            icon={Briefcase} 
+            change={stats ? `${stats.summary.deploymentRate}%` : null}
+            trend="up"
+            loading={loading}
+          />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <StatCard 
+            title="Attendance Today" 
+            value={stats?.summary?.todayAttendance?.present ?? '0'} 
+            icon={Calendar} 
+            loading={loading}
+          />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <StatCard 
+            title="System Integrity" 
+            value="99.9%" 
+            icon={ShieldCheck} 
+            loading={loading}
+          />
+        </motion.div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
