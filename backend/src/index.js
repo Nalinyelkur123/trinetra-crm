@@ -29,9 +29,7 @@ const auditLogger = require('./middleware/auditLogger');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Initialize Database
-initDb();
-
+// The database is initialized before starting the server
 // Middleware
 app.use(helmet());
 app.use(cors());
@@ -105,8 +103,10 @@ app.get('/', (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  initDb().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   });
 }
 

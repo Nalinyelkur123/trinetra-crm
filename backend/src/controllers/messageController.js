@@ -1,88 +1,114 @@
-const { db } = require('../config/db');
+const Message = require('../models/Message');
+const User = require('../models/User');
+const mongoose = require('mongoose');
 
-const sendMessage = (req, res) => {
+const sendMessage = async (req, res) => {
   const { receiver_id, group_id, message_type, content } = req.body;
   const sender_id = req.user.id;
-  
+
   try {
-    const stmt = db.prepare('INSERT INTO messages (sender_id, receiver_id, group_id, message_type, content) VALUES (?, ?, ?, ?, ?)');
-    const info = stmt.run(sender_id, receiver_id, group_id, message_type, content);
-    res.status(201).json({ message: 'Message sent', messageId: info.lastInsertRowid });
+    const message = new Message({
+      sender_id,
+      receiver_id: receiver_id || undefined,
+      group_id: group_id || undefined,
+      message_type,
+      content
+    });
+    await message.save();
+    res.status(201).json({ message: 'Message sent', messageId: message._id });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
-const getMessages = (req, res) => {
+const getMessages = async (req, res) => {
   try {
     const { conversation_with, group_id } = req.query;
     const user_id = req.user.id;
-    let query = 'SELECT * FROM messages WHERE (sender_id = ? OR receiver_id = ?)';
-    const params = [user_id, user_id];
-    
-    if (conversation_with) {
-      query += ' AND ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))';
-      params.push(conversation_with, user_id, user_id, conversation_with);
-    }
+    let query = {};
+
     if (group_id) {
-      query += ' AND group_id = ?';
-      params.push(group_id);
+      query.group_id = group_id;
+    } else if (conversation_with) {
+      query.$or = [
+        { sender_id: user_id, receiver_id: conversation_with },
+        { sender_id: conversation_with, receiver_id: user_id }
+      ];
+    } else {
+      query.$or = [{ sender_id: user_id }, { receiver_id: user_id }];
     }
-    
-    query += ' ORDER BY created_at DESC LIMIT 100';
-    const messages = db.prepare(query).all(...params);
-    res.json(messages);
+
+    const messages = await Message.find(query)
+      .sort({ created_at: -1 })
+      .limit(100)
+      .lean();
+
+    res.json(messages.map(m => ({ ...m, id: m._id })));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const markMessageAsRead = (req, res) => {
+const markMessageAsRead = async (req, res) => {
   const { messageId } = req.params;
   try {
-    db.prepare('UPDATE messages SET is_read = 1 WHERE id = ?').run(messageId);
+    await Message.findByIdAndUpdate(messageId, { is_read: true });
     res.json({ message: 'Message marked as read' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const getConversations = (req, res) => {
+const getConversations = async (req, res) => {
   const user_id = req.user.id;
   try {
-    const conversations = db.prepare(`
-      SELECT DISTINCT 
-        CASE 
-          WHEN sender_id = ? THEN receiver_id
-          ELSE sender_id
-        END as other_user_id,
-        (SELECT name FROM users WHERE id = other_user_id) as other_user_name,
-        MAX(created_at) as last_message_time,
-        SUM(CASE WHEN is_read = 0 AND receiver_id = ? THEN 1 ELSE 0 END) as unread_count
-      FROM messages
-      WHERE sender_id = ? OR receiver_id = ?
-      GROUP BY other_user_id
-      ORDER BY last_message_time DESC
-    `).all(user_id, user_id, user_id, user_id);
-    
+    const conversations = await Message.aggregate([
+      { $match: { $or: [{ sender_id: new mongoose.Types.ObjectId(user_id) }, { receiver_id: new mongoose.Types.ObjectId(user_id) }] } },
+      { $group: {
+          _id: { $cond: [{ $eq: ["$sender_id", new mongoose.Types.ObjectId(user_id)] }, "$receiver_id", "$sender_id"] },
+          last_message_time: { $max: "$created_at" },
+          unread_count: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$is_read", false] }, { $eq: ["$receiver_id", new mongoose.Types.ObjectId(user_id)] }] },
+                1,
+                0
+              ]
+            }
+          }
+      } },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+      { $unwind: "$user" },
+      { $project: {
+          other_user_id: "$_id",
+          other_user_name: "$user.name",
+          last_message_time: 1,
+          unread_count: 1
+      } },
+      { $sort: { last_message_time: -1 } }
+    ]);
+
     res.json(conversations);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const broadcastMessage = (req, res) => {
+const broadcastMessage = async (req, res) => {
   const { message_type, content } = req.body;
   const from_user_id = req.user.id;
   try {
-    // Get all users with specific role
-    const users = db.prepare('SELECT id FROM users WHERE role = ?').all(message_type === 'admin_announcement' ? 'worker' : 'admin');
-    
-    users.forEach(user => {
-      db.prepare('INSERT INTO messages (sender_id, receiver_id, message_type, content) VALUES (?, ?, ?, ?)')
-        .run(from_user_id, user.id, message_type, content);
-    });
-    
+    const users = await User.find({ role: message_type === 'admin_announcement' ? 'worker' : 'admin' }).lean();
+
+    const messages = users.map(user => ({
+      sender_id: from_user_id,
+      receiver_id: user._id,
+      message_type,
+      content
+    }));
+
+    await Message.insertMany(messages);
+
     res.json({ message: `Broadcast sent to ${users.length} users` });
   } catch (error) {
     res.status(500).json({ error: error.message });

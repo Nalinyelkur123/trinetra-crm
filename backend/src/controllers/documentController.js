@@ -1,28 +1,38 @@
-const { db } = require('../config/db');
+const Document = require('../models/Document');
+const AuditLog = require('../models/AuditLog');
 
-const getDocuments = (req, res) => {
+const getDocuments = async (req, res) => {
   try {
-    const docs = db.prepare(`
-      SELECT d.*, u.name as worker_name
-      FROM documents d
-      JOIN users u ON d.worker_id = u.id
-      ORDER BY d.created_at DESC
-    `).all();
+    const docsRaw = await Document.find()
+      .sort({ created_at: -1 })
+      .populate('worker_id', 'name')
+      .lean();
+
+    const docs = docsRaw.map(d => ({
+      ...d,
+      id: d._id,
+      worker_name: d.worker_id?.name
+    }));
+
     res.json(docs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const updateDocumentStatus = (req, res) => {
+const updateDocumentStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
-    db.prepare('UPDATE documents SET status = ? WHERE id = ?').run(status, id);
+    await Document.findByIdAndUpdate(id, { status });
     
     // Log Activity
-    db.prepare('INSERT INTO audit_logs (action, user_id, target_type, target_id) VALUES (?, ?, ?, ?)')
-      .run('DOCUMENT_VERIFIED', req.user.id, 'DOCUMENT', id);
+    await AuditLog.create({
+      action: 'DOCUMENT_VERIFIED',
+      user_id: req.user.id,
+      target_type: 'DOCUMENT',
+      target_id: id
+    });
 
     res.json({ message: 'Document status updated' });
   } catch (error) {
@@ -30,10 +40,10 @@ const updateDocumentStatus = (req, res) => {
   }
 };
 
-const deleteDocument = (req, res) => {
+const deleteDocument = async (req, res) => {
   const { id } = req.params;
   try {
-    db.prepare('DELETE FROM documents WHERE id = ?').run(id);
+    await Document.findByIdAndDelete(id);
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

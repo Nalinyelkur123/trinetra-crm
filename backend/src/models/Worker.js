@@ -1,0 +1,32 @@
+const mongoose = require('mongoose');
+const workerSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  address: String,
+  emergency_contact: String,
+  skills: String,
+  job_role: String,
+  status: { type: String, default: 'active' },
+  joined_date: Date,
+  father_name: String,
+  mother_name: String,
+  dob: Date,
+  gender: String,
+  blood_group: String,
+  pan_number: String,
+  aadhaar_number: String,
+  uan_number: String,
+  bank_name: String,
+  bank_branch: String,
+  bank_account: String,
+  bank_ifsc: String,
+  bank_holder_name: String,
+  qualification: String,
+  experience_years: Number,
+  client_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
+  assignment_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ClientAssignment' },
+  base_salary: { type: Number, default: 0 },
+  shift_start: String,
+  shift_end: String,
+  working_hours: Number
+});
+module.exports = mongoose.model('Worker', workerSchema);

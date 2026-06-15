@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Calendar, Briefcase, DollarSign, Settings, 
-  LogOut, Menu, X, Bell, LayoutDashboard, FileText, Search, UserPlus, Shield, Activity, RefreshCw, Building2
+  LogOut, Menu, X, Bell, LayoutDashboard, FileText, Search, UserPlus, Shield, Activity, RefreshCw, Building2, Clock
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
