@@ -139,7 +139,7 @@ const Reports = () => {
               </div>
               
               <div style="margin-top: 40px; font-size: 11px; color: #64748b;">
-                <p>Verified against active ledger synchronization. Data integrity secured via Trinetra Core protocols.</p>
+                <p>Verified and synchronized data.</p>
               </div>
               
               <div class="footer">
@@ -163,9 +163,9 @@ const Reports = () => {
   };
 
   const reportCategories = [
-    { name: 'Workforce Demographics', icon: Users, count: stats.workforce, label: 'Personnel', lastRun: 'Live', path: '/admin/workers' },
+    { name: 'Total Workers', icon: Users, count: stats.workforce, label: 'Personnel', lastRun: 'Live', path: '/admin/workers' },
     { name: 'Attendance Trends', icon: BarChart2, count: stats.attendance, label: 'Today', lastRun: 'Today', path: '/admin/attendance' },
-    { name: 'Client Deployment', icon: PieChart, count: stats.clients, label: 'Partners', lastRun: 'Live', path: '/admin/clients' },
+    { name: 'Total Clients', icon: PieChart, count: stats.clients, label: 'Partners', lastRun: 'Live', path: '/admin/clients' },
     { name: 'Payroll Compliance', icon: TrendingUp, count: stats.payroll, label: 'Pending', lastRun: 'Recent', path: '/admin/payroll' },
   ];
 
@@ -181,7 +181,7 @@ const Reports = () => {
             onClick={() => setShowFilterModal(true)}
             className="btn-secondary flex items-center gap-2 text-xs font-black uppercase tracking-widest px-6"
           >
-            <Filter size={18} /> intelligence Filter
+            <Filter size={18} /> Filters
           </button>
           <button 
             onClick={() => setShowScheduleModal(true)}
@@ -230,20 +230,20 @@ const Reports = () => {
                  <FileText size={28} />
               </div>
               <div>
-                 <h3 className="text-xl font-black tracking-tight">Standard Operational Documents</h3>
-                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Authorized Templates</p>
+                 <h3 className="text-xl font-black tracking-tight">Standard Reports</h3>
+                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Templates</p>
               </div>
            </div>
            <button className="text-primary text-[10px] font-black tracking-widest uppercase hover:underline py-2 px-4 rounded-lg hover:bg-primary/5 transition-all">Manage Templates</button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 divide-x divide-y divide-border border-b border-border">
           {[
-            { title: 'Monthly Payroll Summary', desc: 'Detailed financial disbursement matrix including base salary, OT incentives, and statutory deductions.' },
-            { title: 'Daily Attendance Matrix', desc: 'Synchronized personnel deployment log with real-time clock-in verification and site location tracing.' },
-            { title: 'Worker Deployment Log', desc: 'Strategic workforce distribution map tracking on-site personnel across active client operational zones.' },
-            { title: 'Compliance Audit Report', desc: 'Statutory document lifecycle audit ensuring 100% alignment with regulatory and safety protocols.' },
-            { title: 'Identity Verification Trace', desc: 'End-to-end identity traceability matrix securing the integrity of on-site operations and access.' },
-            { title: 'Site Distribution Analytics', desc: 'Comprehensive demographic distribution and site-level operational health metrics for client partners.' }
+            { title: 'Monthly Payroll Summary', desc: 'Detailed payroll summary with salary, overtime, and deductions.' },
+            { title: 'Daily Attendance Matrix', desc: 'Daily attendance records with check-in times and locations.' },
+            { title: 'Worker Deployment Log', desc: 'Worker assignments across all active clients.' },
+            { title: 'Compliance Audit Report', desc: 'Audit of all worker documents and their expiry dates.' },
+            { title: 'Identity Verification Trace', desc: 'Verification details for all worker identity records.' },
+            { title: 'Site Distribution Analytics', desc: 'Overview of worker distribution and performance across all client sites.' }
           ].map((report, i) => (
             <div key={i} className="p-10 hover:bg-primary/[0.02] transition-all flex flex-col justify-between group relative overflow-hidden">
                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -257,7 +257,7 @@ const Reports = () => {
                  onClick={() => { setSelectedReport(report.title); setShowDownloadModal(true); }}
                  className="mt-12 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-primary group-hover:gap-5 transition-all"
                >
-                  <Download size={18} /> Download Intelligence
+                  <Download size={18} /> Download Report
                </button>
             </div>
           ))}
@@ -272,8 +272,8 @@ const Reports = () => {
               <Activity size={22} />
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tight">Live Activity Ledger</h3>
-              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-0.5">Real-time system-wide event orchestration</p>
+              <h3 className="text-xl font-black tracking-tight">Recent Activity</h3>
+              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-0.5">Live updates from across the system</p>
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-xl">
@@ -399,7 +399,7 @@ const Reports = () => {
               className="bg-card border border-border rounded-[2.5rem] shadow-2xl max-w-xl w-full p-10"
             >
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-2xl font-black">Intelligence Filter</h2>
+                <h2 className="text-2xl font-black">Filters</h2>
                 <button onClick={() => setShowFilterModal(false)}><X size={24} /></button>
               </div>
               <div className="space-y-8">
@@ -418,7 +418,7 @@ const Reports = () => {
                       ))}
                    </div>
                 </div>
-                <button onClick={() => setShowFilterModal(false)} className="btn-primary w-full py-4">Apply Tactical Filters</button>
+                <button onClick={() => setShowFilterModal(false)} className="btn-primary w-full py-4">Apply Filters</button>
               </div>
             </motion.div>
           </div>
@@ -433,7 +433,7 @@ const Reports = () => {
               className="bg-card border border-border rounded-[2.5rem] shadow-2xl max-w-xl w-full p-10"
             >
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-2xl font-black">Strategic Scheduler</h2>
+                <h2 className="text-2xl font-black">Schedule Report</h2>
                 <button onClick={() => setShowScheduleModal(false)}><X size={24} /></button>
               </div>
               <div className="space-y-8">
@@ -449,7 +449,7 @@ const Reports = () => {
                    <label className="caption">Distribution Nodes (Emails)</label>
                    <input type="text" placeholder="admin@trinetra.com, ceo@trinetra.com" className="input-field" />
                 </div>
-                <button onClick={() => setShowScheduleModal(false)} className="btn-primary w-full py-4">Activate automated Pipeline</button>
+                <button onClick={() => setShowScheduleModal(false)} className="btn-primary w-full py-4">Activate Schedule</button>
               </div>
             </motion.div>
           </div>

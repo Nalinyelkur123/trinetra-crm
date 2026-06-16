@@ -1,55 +1,69 @@
-const { db } = require('../config/db');
+const { Expense, Client, Invoice, Payroll, Worker } = require('../models');
 
-const getExpenses = (req, res) => {
-  const company_id = req.user?.company_id || 1;
+const getExpenses = async (req, res) => {
+  const company_id = req.user?.company_id;
   try {
-    const expenses = db.prepare(`
-      SELECT e.*, c.name as client_name
-      FROM expenses e
-      LEFT JOIN clients c ON e.client_id = c.id
-      WHERE e.company_id = ?
-      ORDER BY e.date DESC
-    `).all(company_id);
-    res.json(expenses);
+    const expenses = await Expense.find({ company_id }).populate('client_id', 'name').sort({ date: -1 }).lean();
+    const formatted = expenses.map(e => ({
+      ...e,
+      id: e._id,
+      client_name: e.client_id?.name
+    }));
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const createExpense = (req, res) => {
+const createExpense = async (req, res) => {
   const { client_id, assignment_id, category, amount, date, description } = req.body;
-  const company_id = req.user?.company_id || 1;
+  const company_id = req.user?.company_id;
   try {
-    const stmt = db.prepare(`
-      INSERT INTO expenses (client_id, assignment_id, category, amount, date, description, company_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(client_id, assignment_id || null, category, amount, date, description, company_id);
-    res.status(201).json({ id: info.lastInsertRowid, message: 'Expense recorded successfully' });
+    const expense = await Expense.create({
+      client_id: client_id || null, 
+      assignment_id: assignment_id || null, 
+      category, 
+      amount, 
+      date, 
+      description, 
+      company_id
+    });
+    res.status(201).json({ id: expense._id, message: 'Expense recorded successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const getClientProfitability = (req, res) => {
-  const company_id = req.user?.company_id || 1;
+const getClientProfitability = async (req, res) => {
+  const company_id = req.user?.company_id;
   try {
-    const stats = db.prepare(`
-      SELECT 
-        c.name as client_name,
-        COALESCE(SUM(i.amount), 0) as revenue,
-        (SELECT COALESCE(SUM(net_pay), 0) FROM payroll py JOIN workers w ON py.worker_id = w.user_id WHERE w.client_id = c.id) as payroll_costs,
-        COALESCE((SELECT SUM(amount) FROM expenses e WHERE e.client_id = c.id), 0) as operational_expenses
-      FROM clients c
-      LEFT JOIN invoices i ON c.id = i.client_id AND i.status = 'paid'
-      WHERE c.company_id = ?
-      GROUP BY c.id
-    `).all(company_id);
+    const clients = await Client.find({ company_id }).lean();
 
-    const formatted = stats.map(s => ({
-      ...s,
-      total_costs: s.payroll_costs + s.operational_expenses,
-      profit: s.revenue - (s.payroll_costs + s.operational_expenses)
+    const formatted = await Promise.all(clients.map(async (c) => {
+      // Revenue from paid invoices
+      const invoices = await Invoice.find({ client_id: c._id, status: 'paid' }).lean();
+      const revenue = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+
+      // Payroll costs for workers under this client
+      const workers = await Worker.find({ client_id: c._id }).lean();
+      const workerIds = workers.map(w => w.user_id);
+      const payrolls = await Payroll.find({ worker_id: { $in: workerIds } }).lean();
+      const payroll_costs = payrolls.reduce((sum, p) => sum + (p.net_pay || 0), 0);
+
+      // Operational expenses mapped to this client
+      const expenses = await Expense.find({ client_id: c._id }).lean();
+      const operational_expenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+      const total_costs = payroll_costs + operational_expenses;
+
+      return {
+        client_name: c.name,
+        revenue,
+        payroll_costs,
+        operational_expenses,
+        total_costs,
+        profit: revenue - total_costs
+      };
     }));
 
     res.json(formatted);
@@ -58,10 +72,10 @@ const getClientProfitability = (req, res) => {
   }
 };
 
-const deleteExpense = (req, res) => {
+const deleteExpense = async (req, res) => {
   const { id } = req.params;
   try {
-    db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
+    await Expense.findByIdAndDelete(id);
     res.json({ message: 'Expense deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

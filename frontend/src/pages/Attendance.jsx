@@ -81,7 +81,7 @@ const Attendance = () => {
 
   const stats = [
     { 
-      label: 'Selected Personnel', 
+      label: 'Selected Workers', 
       value: totalFiltered, 
       subValue: 'In Current Filter',
       color: 'bg-primary/10 text-primary border-primary/10', 
@@ -114,8 +114,8 @@ const Attendance = () => {
     <div className="space-y-8 pb-10">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Attendance Matrix</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-medium">High-speed deployment verification</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Attendance Log</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">Track daily attendance</p>
         </div>
         <div className="flex gap-3">
           <div className="flex items-center gap-2 bg-card border border-border p-1.5 rounded-2xl shadow-sm">
@@ -125,7 +125,7 @@ const Attendance = () => {
                 setDate(d.toISOString().split('T')[0]);
               }} className="p-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all"><ChevronLeft size={18} /></button>
               <div className="flex flex-col items-center px-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-primary/60 mb-0.5">Deployment Date</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-primary/60 mb-0.5">Date</p>
                 <p className="text-xs font-black uppercase tracking-tighter">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
               </div>
               <button onClick={() => {
@@ -167,7 +167,7 @@ const Attendance = () => {
       <div className="flex flex-col md:flex-row gap-4 items-center bg-card p-4 rounded-2xl border border-border/50 shadow-sm">
         <div className="flex items-center gap-3 flex-1 w-full">
           <Filter size={16} className="text-primary" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tactical Filters</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Filters</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <select 
@@ -202,12 +202,12 @@ const Attendance = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border bg-secondary/30">
-                <th className="px-6 py-5 caption">Operator Identity</th>
-                <th className="px-6 py-5 caption">Client Portfolio</th>
+                <th className="px-6 py-5 caption">Worker Identity</th>
+                <th className="px-6 py-5 caption">Client</th>
                 <th className="px-6 py-5 caption">Expected Shift</th>
                 <th className="px-6 py-5 caption">OT (Hrs)</th>
                 <th className="px-6 py-5 caption">Check-In</th>
-                <th className="px-6 py-5 caption text-center">Status Action Hub</th>
+                <th className="px-6 py-5 caption text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -243,7 +243,7 @@ const Attendance = () => {
                         {record.shift_start || '09:00'} - {record.shift_end || '18:00'}
                       </div>
                       <span className="text-[9px] font-bold text-muted-foreground uppercase mt-1">
-                        {record.working_hours || '8.0'} Hrs Deployment
+                        {record.working_hours || '8.0'} Hrs Shift
                       </span>
                     </div>
                   </td>
@@ -294,7 +294,7 @@ const Attendance = () => {
           {!loading && filteredRecords.length === 0 && (
             <div className="py-20 text-center">
                <Calendar className="mx-auto text-muted-foreground/20 mb-4" size={48} />
-               <p className="text-sm font-black text-muted-foreground uppercase tracking-widest">No Personnel Found</p>
+               <p className="text-sm font-black text-muted-foreground uppercase tracking-widest">No Workers Found</p>
             </div>
           )}
         </div>

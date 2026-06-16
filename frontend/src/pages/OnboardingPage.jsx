@@ -98,7 +98,8 @@ const OnboardingPage = () => {
       }
       navigate('/admin/workers');
     } catch (err) {
-      setError(err.response?.data?.error || 'Operation failed. Ensure all required fields are populated.');
+      const errData = err.response?.data?.error;
+      setError((typeof errData === 'object' ? errData?.message : errData) || 'Operation failed. Ensure all required fields are populated.');
     } finally {
       setSaving(false);
     }
@@ -108,7 +109,7 @@ const OnboardingPage = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="animate-spin text-primary" size={40} />
-        <p className="text-sm font-black text-muted-foreground uppercase tracking-widest">Retrieving Dossier...</p>
+        <p className="text-sm font-black text-muted-foreground uppercase tracking-widest">Loading...</p>
       </div>
     );
   }
@@ -126,10 +127,10 @@ const OnboardingPage = () => {
           </button>
           <div>
             <h1 className="text-3xl font-black tracking-tighter">
-              {isEdit ? 'Refine Personnel' : 'Initialize Onboarding'}
+              {isEdit ? 'Edit Worker' : 'Initialize Onboarding'}
             </h1>
             <p className="caption mt-1 flex items-center gap-2">
-              <ShieldCheck size={12} className="text-primary" /> {isEdit ? `Modifying TRN-${id}` : 'Personnel Registry Protocol'}
+              <ShieldCheck size={12} className="text-primary" /> {isEdit ? `Modifying TRN-${id}` : 'Worker Registration'}
             </p>
           </div>
         </div>
@@ -142,7 +143,7 @@ const OnboardingPage = () => {
             className="btn-primary px-10 py-3.5 shadow-xl shadow-primary/20"
           >
             {saving ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save size={18} className="mr-2" />}
-            {isEdit ? 'Commit Changes' : 'Register Personnel'}
+            {isEdit ? 'Save Changes' : 'Register Worker'}
           </button>
         </div>
       </div>
@@ -283,7 +284,7 @@ const OnboardingPage = () => {
               <input type="number" name="experience_years" value={formData.experience_years} onChange={handleChange} className="input-field w-full" />
             </div>
             <div className="space-y-2">
-               <label className="caption ml-1">Personnel Status</label>
+               <label className="caption ml-1">Worker Status</label>
                <select name="status" value={formData.status} onChange={handleChange} className="input-field w-full appearance-none">
                   <option value="active">Active/Authorized</option>
                   <option value="pending">Pending Review</option>
@@ -350,7 +351,7 @@ const OnboardingPage = () => {
               <Landmark size={22} />
             </div>
             <div>
-              <h3 className="text-xl font-black">Financial Ledger</h3>
+              <h3 className="text-xl font-black">Financial Details</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Banking details for payroll processing</p>
             </div>
           </div>
@@ -375,7 +376,7 @@ const OnboardingPage = () => {
           </div>
         </section>
 
-        {/* SECTION 5: STATUTORY DOCUMENTS */}
+        {/* SECTION 5: DOCUMENTS */}
         <section className="card-premium p-10">
           <div className="flex items-center gap-4 mb-10 pb-4 border-b border-border">
             <div className="w-10 h-10 bg-blue-500/10 text-blue-600 rounded-xl flex items-center justify-center">
@@ -383,7 +384,7 @@ const OnboardingPage = () => {
             </div>
             <div>
               <h3 className="text-xl font-black">Identity Records & Documents</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Statutory IDs and physical document uploads</p>
+              <p className="text-xs text-muted-foreground mt-0.5">ID Cards and document uploads</p>
             </div>
           </div>
 
@@ -429,7 +430,7 @@ const OnboardingPage = () => {
              <div className="flex items-center gap-4 p-6 bg-primary/5 rounded-2xl border border-primary/10">
                 <AlertCircle size={24} className="text-primary shrink-0" />
                 <p className="text-[10px] font-bold text-muted-foreground leading-relaxed uppercase">
-                   Please ensure all statutory identifiers match the uploaded documents exactly to prevent payroll disruption.
+                   Please ensure all ID numbers match the uploaded documents exactly to prevent payroll issues.
                 </p>
              </div>
           </div>

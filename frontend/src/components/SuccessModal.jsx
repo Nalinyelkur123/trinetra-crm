@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, X } from 'lucide-react';
 
-const SuccessModal = ({ isOpen, onClose, title = "Configuration Committed", message = "System settings have been successfully synchronized with the core ledger." }) => {
+const SuccessModal = ({ isOpen, onClose, title = "Success", message = "Your changes have been saved successfully." }) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -56,7 +56,7 @@ const SuccessModal = ({ isOpen, onClose, title = "Configuration Committed", mess
                 transition={{ delay: 0.3 }}
                 className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-600/80 hover:shadow-emerald-600/30 text-white font-black rounded-2xl transition-all shadow-lg shadow-emerald-600/20 mt-10"
               >
-                Acknowledge Protocol
+                Okay
               </motion.button>
             </div>
 

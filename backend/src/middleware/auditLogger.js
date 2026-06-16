@@ -1,4 +1,4 @@
-const { db } = require('../config/db');
+const { AuditLog } = require('../models');
 
 const auditLogger = (req, res, next) => {
   const originalJson = res.json;
@@ -22,15 +22,19 @@ const auditLogger = (req, res, next) => {
         if (parts.length > 1) {
           targetType = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
           // If it's a specific ID
-          if (parts[2] && !isNaN(parts[2])) {
+          if (parts[2]) {
             targetId = parts[2];
           }
         }
 
-        db.prepare(`
-          INSERT INTO audit_logs (user_id, action, target_type, target_id, timestamp)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `).run(user.id, action, targetType, targetId);
+        AuditLog.create({
+          user_id: user.id,
+          action,
+          target_type: targetType,
+          target_id: targetId
+        }).catch(err => {
+          console.error('Audit Logging Failed:', err);
+        });
       } catch (err) {
         console.error('Audit Logging Failed:', err);
       }

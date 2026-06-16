@@ -1,38 +1,39 @@
-const { db } = require('../config/db');
+const { Attendance, Worker, User } = require('../models');
 
-const markAttendance = (req, res) => {
+const markAttendance = async (req, res) => {
   const { worker_id, status, location, date: reqDate, shift_type, overtime_hours } = req.body;
-  const date = reqDate || new Date().toISOString().split('T')[0];
+  const date = reqDate ? new Date(reqDate) : new Date(new Date().toISOString().split('T')[0]);
 
   try {
-    // Fetch worker shift details
-    const workerDetails = db.prepare('SELECT shift_start, shift_end FROM workers WHERE user_id = ?').get(worker_id);
-    const currentTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const workerDetails = await Worker.findOne({ user_id: worker_id }).lean();
+    const currentTime = new Date();
+    const currentHMS = currentTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
     let finalStatus = status;
-    // Auto-calculate late status if not specified and present
     if (status === 'present' && workerDetails?.shift_start) {
-      if (currentTime > workerDetails.shift_start) {
+      if (currentHMS > workerDetails.shift_start) {
         finalStatus = 'late';
       }
     }
 
-    const existing = db.prepare('SELECT id, check_in_time FROM attendance WHERE worker_id = ? AND date = ?').get(worker_id, date);
+    const existing = await Attendance.findOne({ worker_id, date });
 
     if (existing) {
-      const updateStmt = db.prepare(`
-        UPDATE attendance 
-        SET status = ?, location = ?, check_in_time = COALESCE(check_in_time, ?), shift_type = ?, overtime_hours = ?
-        WHERE id = ?
-      `);
-      updateStmt.run(finalStatus, location || 'Main HQ', (finalStatus === 'present' || finalStatus === 'late') ? currentTime : null, shift_type || 'General', overtime_hours || 0, existing.id);
+      existing.status = finalStatus;
+      existing.location = location || 'Main HQ';
+      if ((finalStatus === 'present' || finalStatus === 'late') && !existing.check_in_time) {
+        existing.check_in_time = currentTime;
+      }
+      existing.shift_type = shift_type || 'General';
+      existing.overtime_hours = overtime_hours || 0;
+      await existing.save();
       res.json({ message: 'Attendance updated', status: finalStatus });
     } else {
-      const insertStmt = db.prepare(`
-        INSERT INTO attendance (worker_id, date, status, location, check_in_time, shift_type, overtime_hours)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-      insertStmt.run(worker_id, date, finalStatus, location || 'Main HQ', (finalStatus === 'present' || finalStatus === 'late') ? currentTime : null, shift_type || 'General', overtime_hours || 0);
+      await Attendance.create({
+        worker_id, date, status: finalStatus, location: location || 'Main HQ',
+        check_in_time: (finalStatus === 'present' || finalStatus === 'late') ? currentTime : null,
+        shift_type: shift_type || 'General', overtime_hours: overtime_hours || 0
+      });
       res.status(201).json({ message: 'Attendance marked', status: finalStatus });
     }
   } catch (error) {
@@ -40,74 +41,94 @@ const markAttendance = (req, res) => {
   }
 };
 
-const bulkMarkAttendance = (req, res) => {
+const bulkMarkAttendance = async (req, res) => {
   const { worker_ids, status, location, date, shift_type } = req.body;
   if (!Array.isArray(worker_ids) || !worker_ids.length || !['present', 'absent', 'half-day', 'late'].includes(status)) {
     return res.status(400).json({ error: 'Select workers and a valid attendance status' });
   }
-  const attendanceDate = date || new Date().toISOString().split('T')[0];
-  const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const upsert = db.prepare(`
-    INSERT INTO attendance (worker_id, date, status, location, check_in_time, shift_type)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(worker_id, date) DO UPDATE SET
-      status = excluded.status,
-      location = excluded.location,
-      check_in_time = COALESCE(attendance.check_in_time, excluded.check_in_time),
-      shift_type = excluded.shift_type
-  `);
-  db.transaction(() => {
-    worker_ids.forEach(workerId => upsert.run(
-      workerId, attendanceDate, status, location || 'Main HQ',
-      ['present', 'late'].includes(status) ? now : null, shift_type || 'General'
-    ));
-  })();
-  res.json({ message: `Attendance updated for ${worker_ids.length} worker(s)` });
+  
+  const attendanceDate = date ? new Date(date) : new Date(new Date().toISOString().split('T')[0]);
+  const currentTime = new Date();
+
+  try {
+    const operations = worker_ids.map(workerId => {
+      const updateData = {
+        status,
+        location: location || 'Main HQ',
+        shift_type: shift_type || 'General'
+      };
+
+      if (['present', 'late'].includes(status)) {
+        updateData.$setOnInsert = { check_in_time: currentTime };
+      } else {
+        updateData.$setOnInsert = { check_in_time: null };
+      }
+
+      return {
+        updateOne: {
+          filter: { worker_id: workerId, date: attendanceDate },
+          update: { $set: updateData },
+          upsert: true
+        }
+      };
+    });
+
+    await Attendance.bulkWrite(operations);
+    res.json({ message: `Attendance updated for ${worker_ids.length} worker(s)` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-const reviewOvertime = (req, res) => {
+const reviewOvertime = async (req, res) => {
   const { attendance_ids, status } = req.body;
   if (!Array.isArray(attendance_ids) || !attendance_ids.length || !['approved', 'rejected'].includes(status)) {
     return res.status(400).json({ error: 'Select overtime entries and a valid status' });
   }
-  const placeholders = attendance_ids.map(() => '?').join(',');
-  db.prepare(`UPDATE attendance SET overtime_status = ? WHERE id IN (${placeholders}) AND overtime_hours > 0`)
-    .run(status, ...attendance_ids);
-  res.json({ message: `Overtime ${status}` });
+  try {
+    await Attendance.updateMany(
+      { _id: { $in: attendance_ids }, overtime_hours: { $gt: 0 } },
+      { $set: { overtime_status: status } }
+    );
+    res.json({ message: `Overtime ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-const getDailyAttendance = (req, res) => {
-  const { date = new Date().toISOString().split('T')[0] } = req.query;
+const getDailyAttendance = async (req, res) => {
+  const { date } = req.query;
+  const targetDate = date ? new Date(date) : new Date(new Date().toISOString().split('T')[0]);
   const { company_id } = req.user;
 
   try {
-    const attendance = db.prepare(`
-      SELECT 
-        u.id as worker_id, 
-        u.name as worker_name, 
-        u.phone,
-        w.job_role,
-        w.shift_start,
-        w.shift_end,
-        w.working_hours,
-        c.name as client_name,
-        a.status,
-        a.location,
-        a.check_in_time,
-        a.check_out_time,
-        a.shift_type,
-        a.overtime_hours
-        ,a.overtime_status
-        ,a.id as attendance_id
-      FROM users u
-      JOIN workers w ON u.id = w.user_id
-      LEFT JOIN clients c ON w.client_id = c.id
-      LEFT JOIN attendance a ON u.id = a.worker_id AND a.date = ?
-      WHERE u.company_id = ? AND u.role = 'worker'
-      ORDER BY u.name ASC
-    `).all(date, company_id);
+    const users = await User.find({ company_id, role: 'worker' }).sort({ name: 1 }).lean();
     
-    res.json(attendance);
+    const results = await Promise.all(users.map(async (u) => {
+      const w = await Worker.findOne({ user_id: u._id }).populate('client_id').lean();
+      const a = await Attendance.findOne({ worker_id: u._id, date: targetDate }).lean();
+      
+      return {
+        worker_id: u._id,
+        worker_name: u.name,
+        phone: u.phone,
+        job_role: w?.job_role,
+        shift_start: w?.shift_start,
+        shift_end: w?.shift_end,
+        working_hours: w?.working_hours,
+        client_name: w?.client_id?.name,
+        status: a?.status,
+        location: a?.location,
+        check_in_time: a?.check_in_time,
+        check_out_time: a?.check_out_time,
+        shift_type: a?.shift_type,
+        overtime_hours: a?.overtime_hours,
+        overtime_status: a?.overtime_status,
+        attendance_id: a?._id
+      };
+    }));
+    
+    res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

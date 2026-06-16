@@ -1,60 +1,63 @@
-const { db } = require('../config/db');
+const { Task, Notification } = require('../models');
 
-const createTask = (req, res) => {
+const createTask = async (req, res) => {
   const { assignment_id, worker_id, title, description, priority, due_date } = req.body;
-  const assigned_by = req.user.id; // From auth middleware
+  const assigned_by = req.user.id;
   
   try {
     if (!assignment_id || !title || !due_date) {
       return res.status(400).json({ error: 'Assignment, title, and due date are required' });
     }
-    const stmt = db.prepare('INSERT INTO tasks (assignment_id, worker_id, title, description, priority, due_date, assigned_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const info = stmt.run(assignment_id, worker_id, title, description, priority, due_date, assigned_by);
     
-    // Notify assigned worker
+    const task = await Task.create({
+      assignment_id, worker_id: worker_id || null, title, description, priority: priority || 'medium', due_date, assigned_by
+    });
+    
     if (worker_id) {
-      db.prepare('INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)')
-        .run(worker_id, 'task_assigned', 'New Task', `${title} assigned - Due: ${due_date}`);
+      await Notification.create({
+        user_id: worker_id,
+        type: 'task_assigned',
+        title: 'New Task',
+        message: `${title} assigned - Due: ${due_date}`
+      });
     }
     
-    res.status(201).json({ message: 'Task created', taskId: info.lastInsertRowid });
+    res.status(201).json({ message: 'Task created', taskId: task._id });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
-const getTasks = (req, res) => {
+const getTasks = async (req, res) => {
   try {
     const { worker_id, assignment_id, status, priority } = req.query;
-    let query = 'SELECT t.*, u.name as assigned_by_name, w.name as worker_name FROM tasks t LEFT JOIN users u ON t.assigned_by = u.id LEFT JOIN users w ON t.worker_id = w.id WHERE 1=1';
-    const params = [];
+    const filter = {};
     
-    if (worker_id) {
-      query += ' AND t.worker_id = ?';
-      params.push(worker_id);
-    }
-    if (assignment_id) {
-      query += ' AND t.assignment_id = ?';
-      params.push(assignment_id);
-    }
-    if (status) {
-      query += ' AND t.status = ?';
-      params.push(status);
-    }
-    if (priority) {
-      query += ' AND t.priority = ?';
-      params.push(priority);
-    }
+    if (worker_id) filter.worker_id = worker_id;
+    if (assignment_id) filter.assignment_id = assignment_id;
+    if (status) filter.status = status;
+    if (priority) filter.priority = priority;
     
-    query += ' ORDER BY t.due_date ASC';
-    const tasks = db.prepare(query).all(...params);
-    res.json(tasks);
+    const tasks = await Task.find(filter)
+      .populate('assigned_by', 'name')
+      .populate('worker_id', 'name')
+      .sort({ due_date: 1 })
+      .lean();
+
+    const formattedTasks = tasks.map(t => ({
+      ...t,
+      id: t._id,
+      assigned_by_name: t.assigned_by?.name,
+      worker_name: t.worker_id?.name
+    }));
+
+    res.json(formattedTasks);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const updateTaskStatus = (req, res) => {
+const updateTaskStatus = async (req, res) => {
   const { taskId } = req.params;
   const { status } = req.body;
   
@@ -62,17 +65,21 @@ const updateTaskStatus = (req, res) => {
     if (!['pending', 'in_progress', 'completed'].includes(status)) {
       return res.status(400).json({ error: 'Invalid task status' });
     }
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    const task = await Task.findById(taskId);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    db.prepare('UPDATE tasks SET status = ? WHERE id = ?').run(status, taskId);
     
+    task.status = status;
     if (status === 'completed') {
-      db.prepare('UPDATE tasks SET completion_date = ? WHERE id = ?').run(new Date().toISOString().split('T')[0], taskId);
+      task.completion_date = new Date();
     }
+    await task.save();
     
-    // Notify assigner
-    db.prepare('INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)')
-      .run(task.assigned_by, 'task_update', 'Task Status Updated', `${task.title} status changed to ${status}`);
+    await Notification.create({
+      user_id: task.assigned_by,
+      type: 'task_update',
+      title: 'Task Status Updated',
+      message: `${task.title} status changed to ${status}`
+    });
     
     res.json({ message: 'Task status updated' });
   } catch (error) {
@@ -80,26 +87,31 @@ const updateTaskStatus = (req, res) => {
   }
 };
 
-const deleteTask = (req, res) => {
+const deleteTask = async (req, res) => {
   const { taskId } = req.params;
   try {
-    db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    await Task.findByIdAndDelete(taskId);
     res.json({ message: 'Task deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const getTaskAnalytics = (req, res) => {
+const getTaskAnalytics = async (req, res) => {
   try {
-    const analytics = {
-      total_tasks: db.prepare('SELECT COUNT(*) as count FROM tasks').get().count,
-      completed: db.prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'").get().count,
-      pending: db.prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'pending'").get().count,
-      overdue: db.prepare("SELECT COUNT(*) as count FROM tasks WHERE due_date < date('now') AND status != 'completed'").get().count,
-      by_priority: db.prepare('SELECT priority, COUNT(*) as count FROM tasks GROUP BY priority').all()
-    };
-    res.json(analytics);
+    const total_tasks = await Task.countDocuments();
+    const completed = await Task.countDocuments({ status: 'completed' });
+    const pending = await Task.countDocuments({ status: 'pending' });
+    const overdue = await Task.countDocuments({ due_date: { $lt: new Date() }, status: { $ne: 'completed' } });
+    
+    const priorityGroup = await Task.aggregate([
+      { $group: { _id: "$priority", count: { $sum: 1 } } }
+    ]);
+    const by_priority = priorityGroup.map(p => ({ priority: p._id, count: p.count }));
+
+    res.json({
+      total_tasks, completed, pending, overdue, by_priority
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

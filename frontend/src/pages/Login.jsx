@@ -26,7 +26,8 @@ const Login = () => {
       setAuth(user, token);
       navigate(user.role === 'admin' ? '/admin' : '/worker');
     } catch (err) {
-      setError(err.response?.data?.error || 'Authentication failed. Please check your credentials.');
+      const errData = err.response?.data?.error;
+      setError((typeof errData === 'object' ? errData?.message : errData) || 'Authentication failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ const Login = () => {
               <span className="opacity-60">Intelligence.</span>
             </h1>
             <p className="text-white/80 text-lg font-medium leading-relaxed max-w-sm">
-              The professional command center for streamlined manpower deployment and real-time operational oversight.
+              The central hub to manage your workforce and operations.
             </p>
           </div>
 
@@ -87,7 +88,7 @@ const Login = () => {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-3xl font-black mb-2 tracking-tight text-foreground">Access Portal</h2>
-            <p className="text-muted-foreground font-medium text-sm">Sign in to engage the tactical management grid.</p>
+            <p className="text-muted-foreground font-medium text-sm">Sign in to access your dashboard.</p>
           </motion.div>
 
           {error && (
@@ -113,7 +114,7 @@ const Login = () => {
               className="space-y-2"
               whileHover={{ scale: 1.01 }}
             >
-              <label className="caption ml-1">Login Identity</label>
+              <label className="caption ml-1">Phone or Email</label>
               <div className="relative group">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                 <motion.input
@@ -133,14 +134,14 @@ const Login = () => {
               whileHover={{ scale: 1.01 }}
             >
               <div className="flex justify-between items-center px-1">
-                <label className="caption">Access Key</label>
+                <label className="caption">Password</label>
                 <motion.button 
                   type="button" 
                   className="text-[10px] font-bold text-primary uppercase tracking-widest hover:text-primary/80 transition-colors"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  Forgot Key?
+                  Forgot Password?
                 </motion.button>
               </div>
               <div className="relative group">
@@ -170,7 +171,7 @@ const Login = () => {
                 </motion.div>
               ) : (
                 <>
-                  Engage Command System
+                  Login
                   <motion.div animate={{ x: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity }}>
                     <ArrowRight size={18} />
                   </motion.div>
@@ -187,7 +188,7 @@ const Login = () => {
             transition={{ delay: 0.4, duration: 0.5 }}
             whileHover={{ y: -4 }}
           >
-            <h4 className="caption mb-4">Credentials Ledger</h4>
+            <h4 className="caption mb-4">Login Credentials</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <motion.div
                 whileHover={{ scale: 1.02 }}
@@ -200,7 +201,7 @@ const Login = () => {
                 whileHover={{ scale: 1.02 }}
                 className="p-3 rounded-xl bg-card/50 border border-border/30 hover:border-primary/30 transition-all"
               >
-                <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">Personnel Hub</p>
+                <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">Worker Portal</p>
                 <p className="text-[9px] text-muted-foreground font-semibold mt-1">Contact your administrator for credentials</p>
               </motion.div>
             </div>

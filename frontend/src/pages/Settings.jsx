@@ -66,7 +66,7 @@ const Settings = () => {
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
       <Loader2 className="animate-spin text-primary" size={48} />
-      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Initializing Protocols...</p>
+      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Loading Settings...</p>
     </div>
   );
 
@@ -75,13 +75,13 @@ const Settings = () => {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Governance Hub</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-medium">Global System Configuration & Protocol Management</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">System Configuration & Management</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="hidden md:flex flex-col items-end mr-4">
-            <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Protocol Status</p>
-            <p className="text-xs font-medium text-muted-foreground">Encrypted & Synchronized</p>
+            <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Status</p>
+            <p className="text-xs font-medium text-muted-foreground">Saved & Secure</p>
           </div>
           <button 
             onClick={() => setShowConfirmModal(true)}
@@ -94,7 +94,7 @@ const Settings = () => {
               </>
             ) : (
               <>
-                <Save size={16} /> Commit Configuration
+                <Save size={16} /> Save Settings
               </>
             )}
           </button>
@@ -124,7 +124,7 @@ const Settings = () => {
            ))}
            
            <div className="mt-10 p-6 rounded-[2rem] bg-secondary/20 border border-border/50">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Core Metadata</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">System Info</p>
               <div className="space-y-4">
                  <div className="flex justify-between items-center">
                     <span className="text-[10px] font-bold text-muted-foreground">Version</span>
@@ -157,7 +157,7 @@ const Settings = () => {
                     </div>
                     <div>
                       <h3 className="text-xl font-black tracking-tight">Organization Profile</h3>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">Primary Entity Credentials</p>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">Primary Details</p>
                     </div>
                   </div>
 
@@ -202,15 +202,15 @@ const Settings = () => {
                       <ShieldCheck size={28} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black tracking-tight">Governance Protocols</h3>
+                      <h3 className="text-xl font-black tracking-tight">Security Settings</h3>
                       <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">Administrative Guardrails</p>
                     </div>
                   </div>
 
                   <div className="space-y-6">
                     {[
-                      { id: 'auto_attendance', label: 'Automated Attendance Protocol', desc: 'Enable location-based automated personnel logging via Trinetra Core.', state: settings.auto_attendance, icon: Clock },
-                      { id: 'registry_lock', label: 'Workforce Registry Lock', desc: 'Restrict manual personnel record modifications to prevent ledger tampering.', state: settings.registry_lock, icon: Lock },
+                      { id: 'auto_attendance', label: 'Automated Attendance', desc: 'Enable location-based automated personnel logging via Trinetra Core.', state: settings.auto_attendance, icon: Clock },
+                      { id: 'registry_lock', label: 'Lock Worker Records', desc: 'Restrict manual personnel record modifications to prevent ledger tampering.', state: settings.registry_lock, icon: Lock },
                       { id: 'security_2fa', label: 'Dual-Factor Authentication', desc: 'Enforce high-security biometric or OTP verification for administrative access.', state: settings.security_2fa, icon: Shield },
                     ].map((toggle) => (
                       <div key={toggle.id} className="flex items-center justify-between p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:border-primary/30 transition-all group">
@@ -243,7 +243,7 @@ const Settings = () => {
                     </div>
                     <div>
                       <h3 className="text-xl font-black tracking-tight">Communication Nodes</h3>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">System Alert Distribution</p>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">System Alerts</p>
                     </div>
                   </div>
 
@@ -272,8 +272,8 @@ const Settings = () => {
                       <Database size={28} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black tracking-tight">Infrastructure Assets</h3>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">Ledger Persistence & Backups</p>
+                      <h3 className="text-xl font-black tracking-tight">Data Management</h3>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-0.5">Data Storage & Backups</p>
                     </div>
                   </div>
 
@@ -301,7 +301,7 @@ const Settings = () => {
                         value={settings.retention_period}
                         onChange={(e) => setSettings({...settings, retention_period: e.target.value})}
                       >
-                        <option value="90 Days">90 Days (Statutory Min)</option>
+                        <option value="90 Days">90 Days (Minimum)</option>
                         <option value="365 Days">365 Days (Standard)</option>
                         <option value="5 Years">5 Years (Compliance Max)</option>
                       </select>
@@ -317,7 +317,7 @@ const Settings = () => {
               <CheckCircle2 size={32} />
             </div>
             <div>
-              <p className="text-sm font-black text-emerald-600 uppercase tracking-[0.2em]">Governance Integrity Verified</p>
+              <p className="text-sm font-black text-emerald-600 uppercase tracking-[0.2em]">Settings Verified</p>
               <p className="text-xs text-emerald-600/70 font-medium mt-1 leading-relaxed">
                 The current configuration is aligned with Trinetra Strategic Protocols. Last synchronized: {new Date().toLocaleTimeString()}
               </p>
@@ -335,9 +335,9 @@ const Settings = () => {
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleSave}
-        title="Update Global Protocols"
-        description="Are you sure you want to commit these changes to the global system settings? This will affect all operational modules."
-        confirmText="Commit Changes"
+        title="Update Settings"
+        description="Are you sure you want to save these changes? This will affect the entire system."
+        confirmText="Save Changes"
         variant="primary"
       />
     </div>

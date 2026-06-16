@@ -1,8 +1,8 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Calendar, Briefcase, DollarSign, Settings, 
-  LogOut, Menu, X, Bell, LayoutDashboard, FileText, Search, UserPlus, Shield, Activity, RefreshCw, Building2
+  LogOut, Menu, X, Bell, LayoutDashboard, FileText, Search, UserPlus, Shield, Activity, RefreshCw, Building2, Clock
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
@@ -25,14 +25,7 @@ const Layout = () => {
   }, [theme]);
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-4">
-           <RefreshCw className="animate-spin text-primary" size={40} />
-           <p className="caption">Initializing System Core...</p>
-        </div>
-      </div>
-    );
+    return <Navigate to="/login" replace />;
   }
 
   const getMenuItems = () => {

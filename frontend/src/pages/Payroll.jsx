@@ -64,10 +64,10 @@ const Payroll = () => {
   const projectedBurn = totalOutflow * 1.05;
 
   const stats = [
-    { label: 'Total Monthly Outflow', value: `₹ ${totalOutflow.toLocaleString()}`, icon: DollarSign, trend: 'Actual' },
-    { label: 'Active Payroll Personnel', value: activeWorkersCount, icon: Users, trend: 'Current' },
-    { label: 'Settlement Ratio', value: `${complianceRate}%`, icon: Landmark, trend: complianceRate === 100 ? 'Optimal' : 'Pending Actions' },
-    { label: 'Projected Burn Rate', value: `₹ ${Math.round(projectedBurn).toLocaleString()}`, icon: TrendingUp, trend: 'Estimated' },
+    { label: 'Total Payroll Cost', value: `₹ ${totalOutflow.toLocaleString()}`, icon: DollarSign, trend: 'Actual' },
+    { label: 'Active Workers', value: activeWorkersCount, icon: Users, trend: 'Current' },
+    { label: 'Paid Ratio', value: `${complianceRate}%`, icon: Landmark, trend: complianceRate === 100 ? 'Optimal' : 'Pending Actions' },
+    { label: 'Estimated Cost', value: `₹ ${Math.round(projectedBurn).toLocaleString()}`, icon: TrendingUp, trend: 'Estimated' },
   ];
 
   const totalPages = Math.ceil(payrollData.length / itemsPerPage);
@@ -80,8 +80,8 @@ const Payroll = () => {
     <div className="space-y-10 max-w-[1600px] mx-auto pb-20">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Financial Ledger</h1>
-          <p className="caption mt-1 text-slate-500 font-medium">Monthly Payroll Reconciliation & Statutory Hub</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Payroll</h1>
+          <p className="caption mt-1 text-slate-500 font-medium">Monthly Payroll Management</p>
         </div>
         <div className="flex gap-4">
            <button 
@@ -96,7 +96,7 @@ const Payroll = () => {
              className="btn-primary flex items-center gap-2 text-xs"
            >
               <DollarSign size={18} /> 
-              Initialize Monthly Payout
+              Generate Payroll
            </button>
         </div>
       </div>
@@ -120,22 +120,22 @@ const Payroll = () => {
         <div className="p-8 border-b border-border bg-secondary/20 flex justify-between items-center">
            <div className="flex items-center gap-3">
               <Landmark className="text-primary" size={20} />
-              <h3 className="text-sm font-black uppercase tracking-widest">Payroll Reconciliation Ledger</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest">Payroll Records</h3>
            </div>
            <button className="btn-secondary gap-3 px-8 text-xs">
-             <Download size={18} /> Export Financial Ledger
+             <Download size={18} /> Export Payroll
            </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-secondary/10 border-b border-border">
-                <th className="px-8 py-6 caption">Personnel Identity</th>
-                <th className="px-8 py-6 caption">Deployment Role</th>
+                <th className="px-8 py-6 caption">Worker Details</th>
+                <th className="px-8 py-6 caption">Job Role</th>
                 <th className="px-8 py-6 caption">Period</th>
-                <th className="px-8 py-6 caption text-center">Net Disbursement</th>
+                <th className="px-8 py-6 caption text-center">Net Pay</th>
                 <th className="px-8 py-6 caption text-center">Status</th>
-                <th className="px-8 py-6 text-right caption">Operational Action</th>
+                <th className="px-8 py-6 text-right caption">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -237,7 +237,7 @@ const Payroll = () => {
                   </div>
                   <div>
                     <h2 className="text-2xl font-black text-foreground">Official Payslip</h2>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-black mt-1">Trinetra Financial Division</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-black mt-1">Payroll Receipt</p>
                   </div>
                 </div>
                 <button onClick={() => setSelectedPayslip(null)} className="p-3 hover:bg-secondary rounded-2xl transition-all">
@@ -248,7 +248,7 @@ const Payroll = () => {
               <div className="space-y-10">
                 <div className="grid grid-cols-2 gap-10">
                    <div className="space-y-4">
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">Personnel Details</p>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">Worker Details</p>
                       <div className="space-y-1">
                          <h3 className="text-lg font-black text-foreground">{selectedPayslip.worker_name}</h3>
                          <p className="text-xs font-bold text-muted-foreground">{selectedPayslip.job_role || 'Staff'}</p>
@@ -256,7 +256,7 @@ const Payroll = () => {
                       </div>
                    </div>
                    <div className="space-y-4">
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">Disbursement Period</p>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">Pay Period</p>
                       <div className="space-y-1">
                          <p className="text-lg font-black text-foreground">
                             {new Date(0, selectedPayslip.month - 1).toLocaleString('default', { month: 'long' })} {selectedPayslip.year}
@@ -273,15 +273,15 @@ const Payroll = () => {
                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">Earnings Breakdown</p>
                    <div className="space-y-4">
                       <div className="flex justify-between items-center group">
-                         <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">Base Operational Salary</span>
+                         <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">Base Salary</span>
                          <span className="text-sm font-black text-foreground">₹ {selectedPayslip.base_salary?.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center group">
-                         <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">Deployment Allowances</span>
+                         <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">Allowances</span>
                          <span className="text-sm font-black text-foreground text-emerald-600">+ ₹ 0</span>
                       </div>
                       <div className="flex justify-between items-center group">
-                         <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">Statutory Deductions (EPF/ESI)</span>
+                         <span className="text-sm font-bold text-muted-foreground group-hover:text-foreground transition-colors">Deductions (EPF/ESI)</span>
                          <span className="text-sm font-black text-foreground text-rose-500">- ₹ 0</span>
                       </div>
                    </div>
@@ -289,7 +289,7 @@ const Payroll = () => {
 
                 <div className="p-8 bg-secondary/30 rounded-3xl border border-border/50 flex justify-between items-center">
                    <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total Net Disbursement</p>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Net Pay</p>
                       <h4 className="text-3xl font-black text-primary tracking-tighter">₹ {selectedPayslip.net_pay?.toLocaleString()}</h4>
                    </div>
                    <div className="text-right">
@@ -301,10 +301,10 @@ const Payroll = () => {
 
               <div className="mt-12 pt-8 border-t border-border flex gap-4">
                  <button onClick={() => window.print()} className="btn-secondary flex-1 py-4 text-xs flex items-center justify-center gap-3">
-                   <Download size={18} /> Generate PDF Ledger
+                   <Download size={18} /> Download PDF
                  </button>
                  <button className="btn-primary flex-1 py-4 text-xs flex items-center justify-center gap-3">
-                   <RefreshCw size={18} /> Re-verify Payout
+                   <RefreshCw size={18} /> Verify Payment
                  </button>
               </div>
             </motion.div>
@@ -317,10 +317,10 @@ const Payroll = () => {
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleGenerate}
         loading={isGenerating}
-        title="Initialize Monthly Payout"
-        description={`Are you sure you want to generate payroll records for ${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}? This will create pending disbursement entries for all active personnel.`}
-        confirmText="Execute Payout Initialization"
-        cancelText="Abort"
+        title="Generate Payroll"
+        description={`Are you sure you want to generate payroll records for ${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}? This will create pending payroll entries for all active workers.`}
+        confirmText="Generate Payroll"
+        cancelText="Cancel"
         variant="primary"
       />
     </div>

@@ -1,99 +1,110 @@
-const { db } = require('../config/db');
+const { Invoice, Client, ClientAssignment, Attendance, Worker } = require('../models');
 
-const getInvoices = (req, res) => {
+const getInvoices = async (req, res) => {
   const { company_id } = req.user;
   try {
-    const invoices = db.prepare(`
-      SELECT i.*, c.name as client_name, a.name as assignment_name
-      FROM invoices i
-      JOIN clients c ON i.client_id = c.id
-      LEFT JOIN client_assignments a ON i.assignment_id = a.id
-      WHERE i.company_id = ?
-      ORDER BY i.issue_date DESC
-    `).all(company_id);
-    res.json(invoices);
+    const invoices = await Invoice.find({ company_id })
+      .populate('client_id', 'name')
+      .populate('assignment_id', 'name')
+      .sort({ issue_date: -1 })
+      .lean();
+    
+    const formattedInvoices = invoices.map(i => ({
+      ...i,
+      id: i._id,
+      client_name: i.client_id?.name,
+      assignment_name: i.assignment_id?.name
+    }));
+
+    res.json(formattedInvoices);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const generateInvoice = (req, res) => {
+const generateInvoice = async (req, res) => {
   const { client_id, assignment_id, issue_date, due_date } = req.body;
   const { company_id } = req.user;
 
   try {
-    const client = db.prepare('SELECT billing_rate FROM clients WHERE id = ?').get(client_id);
+    const client = await Client.findById(client_id).lean();
     if (!client) {
       return res.status(404).json({ error: 'Client record not found. Unable to calculate billing.' });
     }
     
-    const attendanceCount = db.prepare(`
-      SELECT COUNT(*) as total_days
-      FROM attendance a
-      JOIN workers w ON a.worker_id = w.user_id
-      WHERE w.client_id = ? AND a.status IN ('present', 'late')
-      AND a.date BETWEEN ? AND ?
-    `).get(client_id, issue_date || '2000-01-01', due_date || '2100-01-01');
+    // Find all workers for this client
+    const workers = await Worker.find({ client_id }).lean();
+    const workerIds = workers.map(w => w.user_id);
 
-    const amount = (client.billing_rate || 0) * (attendanceCount.total_days || 0);
+    const qDateStart = issue_date ? new Date(issue_date) : new Date('2000-01-01');
+    const qDateEnd = due_date ? new Date(due_date) : new Date('2100-01-01');
+
+    const attendanceCount = await Attendance.countDocuments({
+      worker_id: { $in: workerIds },
+      status: { $in: ['present', 'late'] },
+      date: { $gte: qDateStart, $lte: qDateEnd }
+    });
+
+    const amount = (client.billing_rate || 0) * (attendanceCount || 0);
     const gst_amount = amount * 0.18;
     const total_amount = amount + gst_amount;
 
-    const stmt = db.prepare(`
-      INSERT INTO invoices (client_id, assignment_id, amount, gst_amount, total_amount, issue_date, due_date, company_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(client_id, assignment_id || null, amount, gst_amount, total_amount, issue_date, due_date, company_id);
+    const invoice = await Invoice.create({
+      client_id, 
+      assignment_id: assignment_id || null, 
+      amount, 
+      gst_amount, 
+      total_amount, 
+      issue_date, 
+      due_date, 
+      company_id
+    });
     
-    res.status(201).json({ id: info.lastInsertRowid, message: 'Invoice generated successfully' });
+    res.status(201).json({ id: invoice._id, message: 'Invoice generated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const updateInvoiceStatus = (req, res) => {
+const updateInvoiceStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
-    db.prepare('UPDATE invoices SET status = ? WHERE id = ?').run(status, id);
+    await Invoice.findByIdAndUpdate(id, { status });
     res.json({ message: 'Invoice status updated' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const deleteInvoice = (req, res) => {
+const deleteInvoice = async (req, res) => {
   const { id } = req.params;
   try {
-    db.prepare('DELETE FROM invoices WHERE id = ?').run(id);
+    await Invoice.findByIdAndDelete(id);
     res.json({ message: 'Invoice deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const createInvoice = (req, res) => {
+const createInvoice = async (req, res) => {
   const { client_id, assignment_id, amount, gst_amount, total_amount, issue_date, due_date, status } = req.body;
   const { company_id } = req.user;
 
   try {
-    const stmt = db.prepare(`
-      INSERT INTO invoices (client_id, assignment_id, amount, gst_amount, total_amount, issue_date, due_date, status, company_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(
+    const invoice = await Invoice.create({
       client_id, 
-      assignment_id || null, 
+      assignment_id: assignment_id || null, 
       amount, 
       gst_amount, 
       total_amount, 
       issue_date, 
       due_date, 
-      status || 'pending', 
+      status: status || 'pending', 
       company_id
-    );
+    });
     
-    res.status(201).json({ id: info.lastInsertRowid, message: 'Invoice created successfully' });
+    res.status(201).json({ id: invoice._id, message: 'Invoice created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

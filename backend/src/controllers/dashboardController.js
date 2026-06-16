@@ -1,72 +1,56 @@
-const { db } = require('../config/db');
+const { Worker, Attendance, AuditLog, Client, ClientAssignment, Leave, Note } = require('../models');
 
-const getDashboardStats = (req, res) => {
+const getDashboardStats = async (req, res) => {
   try {
-    // 1. Total Workers Count
-    const totalWorkersData = db.prepare('SELECT COUNT(*) as count FROM workers').get();
-    const totalWorkers = totalWorkersData ? totalWorkersData.count : 0;
+    const totalWorkers = await Worker.countDocuments();
+    const activeWorkers = await Worker.countDocuments({ status: 'active' });
 
-    // 2. Active Workers
-    const activeWorkersData = db.prepare("SELECT COUNT(*) as count FROM workers WHERE status = 'active'").get();
-    const activeWorkers = activeWorkersData ? activeWorkersData.count : 0;
+    const today = new Date(new Date().toISOString().split('T')[0]);
+    
+    const attendances = await Attendance.find({ date: today }).lean();
+    const attendanceStats = { present: 0, absent: 0, late: 0, half_day: 0 };
+    attendances.forEach(a => {
+      if (attendanceStats[a.status] !== undefined) attendanceStats[a.status]++;
+      else attendanceStats[a.status] = 1;
+    });
 
-    // 3. Today's Attendance Summary
-    const today = new Date().toISOString().split('T')[0];
-    const attendanceStats = db.prepare(`
-      SELECT 
-        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
-        SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
-        SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late,
-        SUM(CASE WHEN status = 'half-day' THEN 1 ELSE 0 END) as half_day
-      FROM attendance 
-      WHERE date = ?
-    `).get(today) || { present: 0, absent: 0, late: 0, half_day: 0 };
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const trendDataRaw = await Attendance.aggregate([
+      { $match: { date: { $gte: sevenDaysAgo }, status: { $in: ['present', 'late', 'half-day'] } } },
+      { $group: { _id: "$date", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+    const trendData = trendDataRaw.map(t => ({ date: t._id, count: t.count }));
 
-    // 4. Monthly Attendance Trend (Last 7 Days)
-    const trendData = db.prepare(`
-      SELECT date, COUNT(*) as count 
-      FROM attendance 
-      WHERE date >= date('now', '-7 days') AND status IN ('present', 'late', 'half-day')
-      GROUP BY date
-      ORDER BY date ASC
-    `).all() || [];
+    const recentLogs = await AuditLog.find().sort({ timestamp: -1 }).limit(10).populate('user_id', 'name').lean();
+    const formattedLogs = recentLogs.map(l => ({
+      action: l.action,
+      timestamp: l.timestamp,
+      user_name: l.user_id?.name
+    }));
 
-    // 5. Recent Activity Logs (Activity Feed)
-    const recentLogs = db.prepare(`
-      SELECT a.action, a.timestamp, u.name as user_name
-      FROM audit_logs a
-      LEFT JOIN users u ON a.user_id = u.id
-      ORDER BY a.timestamp DESC
-      LIMIT 10
-    `).all() || [];
+    const clients = await Client.find().lean();
+    const assignments = await ClientAssignment.find().lean();
+    
+    const assignmentStats = await Promise.all(assignments.map(async (ca) => {
+      const client = clients.find(c => c._id.toString() === ca.client_id?.toString());
+      const worker_count = await Worker.countDocuments({ assignment_id: ca._id });
+      return {
+        client_name: client?.name,
+        assignment_name: ca.name,
+        worker_count
+      };
+    })).then(res => res.filter(a => a.worker_count > 0));
 
-    // 6. Client Assignment Distribution
-    const assignmentStats = db.prepare(`
-      SELECT c.name as client_name, ca.name as assignment_name, COUNT(w.id) as worker_count
-      FROM clients c
-      LEFT JOIN client_assignments ca ON c.id = ca.client_id
-      LEFT JOIN workers w ON ca.id = w.assignment_id
-      GROUP BY ca.id
-      HAVING worker_count > 0
-    `).all() || [];
+    const pendingLeaves = await Leave.find({ status: 'pending' }).sort({ createdAt: -1 }).limit(5).populate('worker_id', 'name').lean();
+    const formattedLeaves = pendingLeaves.map(l => ({
+      ...l,
+      worker_name: l.worker_id?.name
+    }));
 
-    // 7. Pending Leaves
-    const pendingLeaves = db.prepare(`
-      SELECT l.*, u.name as worker_name
-      FROM leaves l
-      JOIN users u ON l.worker_id = u.id
-      WHERE l.status = 'pending'
-      ORDER BY l.created_at DESC
-      LIMIT 5
-    `).all() || [];
-
-    // 8. Recent Notes
-    const recentNotes = db.prepare(`
-      SELECT * FROM notes 
-      WHERE is_completed = 0
-      ORDER BY created_at DESC
-      LIMIT 5
-    `).all() || [];
+    const recentNotes = await Note.find({ is_completed: false }).sort({ createdAt: -1 }).limit(5).lean();
 
     res.json({
       summary: {
@@ -77,13 +61,13 @@ const getDashboardStats = (req, res) => {
           present: attendanceStats.present || 0,
           absent: attendanceStats.absent || 0,
           late: attendanceStats.late || 0,
-          totalMarked: (Number(attendanceStats.present) || 0) + (Number(attendanceStats.absent) || 0) + (Number(attendanceStats.late) || 0) + (Number(attendanceStats.half_day) || 0)
+          totalMarked: Object.values(attendanceStats).reduce((a, b) => a + b, 0)
         }
       },
       trend: trendData,
-      recentLogs,
+      recentLogs: formattedLogs,
       assignments: assignmentStats,
-      leaves: pendingLeaves,
+      leaves: formattedLeaves,
       notes: recentNotes
     });
   } catch (error) {
@@ -92,11 +76,11 @@ const getDashboardStats = (req, res) => {
   }
 };
 
-const createNote = (req, res) => {
+const createNote = async (req, res) => {
   const { content, priority } = req.body;
   const user_id = req.user.id;
   try {
-    db.prepare('INSERT INTO notes (user_id, content, priority) VALUES (?, ?, ?)').run(user_id, content, priority || 'normal');
+    await Note.create({ user_id, content, priority: priority || 'normal' });
     res.status(201).json({ message: 'Note saved successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

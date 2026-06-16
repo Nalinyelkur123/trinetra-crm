@@ -75,7 +75,7 @@ const OnboardingForm = ({ isOpen, onClose, onSuccess }) => {
               <InputField label="Full Legal Name" name="name" icon={User} value={formData.name} onChange={handleChange} placeholder="John Doe" />
               <InputField label="Contact Number" name="phone" icon={Phone} value={formData.phone} onChange={handleChange} placeholder="+91 XXXXX XXXXX" />
               <InputField label="Email Address" name="email" icon={Mail} value={formData.email} onChange={handleChange} placeholder="john@example.com" />
-              <InputField label="Strategic Role" name="job_role" icon={Briefcase} value={formData.job_role} onChange={handleChange} placeholder="Site Supervisor" />
+              <InputField label="Job Role" name="job_role" icon={Briefcase} value={formData.job_role} onChange={handleChange} placeholder="Site Supervisor" />
               <InputField label="Joining Date" name="joined_date" type="date" icon={Calendar} value={formData.joined_date} onChange={handleChange} />
               <div className="space-y-3">
                 <label className="caption ml-1">Assigned Project Site</label>
@@ -201,8 +201,8 @@ const OnboardingForm = ({ isOpen, onClose, onSuccess }) => {
         {/* Header */}
         <div className="p-8 md:p-10 border-b border-border flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-foreground">Onboarding Protocol</h2>
-            <p className="caption mt-2">Personnel Integration Stage {step} of 4</p>
+            <h2 className="text-2xl font-black tracking-tight text-foreground">Add Worker</h2>
+            <p className="caption mt-2">Step {step} of 4</p>
           </div>
           <button onClick={onClose} className="p-3 bg-secondary rounded-2xl hover:bg-destructive/10 hover:text-destructive transition-all">
             <X size={20} />
@@ -249,7 +249,7 @@ const OnboardingForm = ({ isOpen, onClose, onSuccess }) => {
             </button>
           ) : (
             <button onClick={handleSubmit} className="btn-primary bg-emerald-600 shadow-emerald-600/20 gap-3 px-10">
-              Initialize Personnel <Check size={18} />
+              Add Worker <Check size={18} />
             </button>
           )}
         </div>

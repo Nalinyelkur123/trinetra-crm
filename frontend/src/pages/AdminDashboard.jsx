@@ -211,7 +211,7 @@ const AdminDashboard = () => {
            {/* Administrative Notes */}
            <div className="card-premium p-8 bg-primary text-white relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -mr-16 -mt-16" />
-              <h3 className="text-xl font-black mb-6">Strategic Notes</h3>
+              <h3 className="text-xl font-black mb-6">Notes</h3>
               <div className="space-y-4">
                  {stats?.notes?.map((note, i) => (
                     <div key={i} className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all cursor-default">
@@ -289,7 +289,7 @@ const AdminDashboard = () => {
               className="bg-card border border-border rounded-[2.5rem] shadow-2xl p-10 max-w-lg w-full"
             >
                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-2xl font-black">Strategic Reminder</h2>
+                  <h2 className="text-2xl font-black">Add Note</h2>
                   <button onClick={() => setShowNoteModal(false)}><X size={24} /></button>
                </div>
                <form onSubmit={handleAddNote} className="space-y-6">
@@ -318,7 +318,7 @@ const AdminDashboard = () => {
                         ))}
                      </div>
                   </div>
-                  <button type="submit" className="btn-primary w-full py-4 mt-4">Save to Ledger</button>
+                  <button type="submit" className="btn-primary w-full py-4 mt-4">Save Note</button>
                </form>
             </motion.div>
           </div>

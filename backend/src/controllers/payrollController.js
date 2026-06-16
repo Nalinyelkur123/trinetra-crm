@@ -1,79 +1,77 @@
-const { db } = require('../config/db');
+const { Payroll, User, Worker, Attendance } = require('../models');
 
-const getPayroll = (req, res) => {
+const getPayroll = async (req, res) => {
   try {
-    const payroll = db.prepare(`
-      SELECT p.*, u.name as worker_name, w.job_role
-      FROM payroll p
-      JOIN users u ON p.worker_id = u.id
-      JOIN workers w ON u.id = w.user_id
-      ORDER BY p.year DESC, p.month DESC
-    `).all();
-    res.json(payroll);
+    const payrollRecords = await Payroll.find().sort({ year: -1, month: -1 }).populate('worker_id', 'name').lean();
+    
+    const formatted = await Promise.all(payrollRecords.map(async (p) => {
+      const worker = await Worker.findOne({ user_id: p.worker_id }).lean();
+      return {
+        ...p,
+        id: p._id,
+        worker_name: p.worker_id?.name,
+        job_role: worker?.job_role
+      };
+    }));
+
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const generatePayroll = (req, res) => {
+const generatePayroll = async (req, res) => {
   const { month, year, overtime_rate = 150 } = req.body;
   try {
-    const workers = db.prepare(`
-      SELECT w.id, w.user_id, w.base_salary FROM workers w
-      JOIN users u ON w.user_id = u.id
-      WHERE w.status = 'active' AND u.company_id = ?
-    `).all(req.user.company_id);
+    const users = await User.find({ company_id: req.user.company_id, role: 'worker' }).lean();
+    const userIds = users.map(u => u._id);
     
-    const checkStmt = db.prepare("SELECT id FROM payroll WHERE worker_id = ? AND month = ? AND year = ?");
-    // Pad month for SQL matching (e.g., '5' becomes '05')
-    const paddedMonth = month.toString().padStart(2, '0');
-    
-    const attendanceStmt = db.prepare(`
-      SELECT
-        SUM(CASE WHEN status IN ('present', 'late') THEN 1 ELSE 0 END) as present_days,
-        COALESCE(SUM(CASE WHEN overtime_status = 'approved' THEN overtime_hours ELSE 0 END), 0) as approved_overtime
-      FROM attendance 
-      WHERE worker_id = ? 
-      AND strftime('%m', date) = ? 
-      AND strftime('%Y', date) = ?
-    `);
+    const workers = await Worker.find({ user_id: { $in: userIds }, status: 'active' }).lean();
+
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
 
     let generatedCount = 0;
-    const transaction = db.transaction((workersList) => {
-      for (const worker of workersList) {
-        const existing = checkStmt.get(worker.user_id, month, year);
-        if (existing) continue;
+    
+    for (const worker of workers) {
+      const existing = await Payroll.findOne({ worker_id: worker.user_id, month, year }).lean();
+      if (existing) continue;
 
-        const baseSalary = worker.base_salary || 25000;
-        
-        // Calculate based on attendance
-        const attendanceData = attendanceStmt.get(worker.user_id, paddedMonth, year.toString());
-        const presentDays = attendanceData?.present_days || 0;
-        const overtimeHours = attendanceData?.approved_overtime || 0;
-        const overtimePay = Math.round(overtimeHours * Number(overtime_rate || 0));
-        
-        // Assume 26 working days for calculation if present days > 0, otherwise base salary (placeholder logic)
-        // In production, we'd use actual days in month.
-        let netPay = baseSalary;
-        if (presentDays > 0) {
-           netPay = Math.round((baseSalary / 26) * presentDays);
-        } else if (presentDays === 0) {
-           // If they have attendance records but 0 present days, pay might be 0.
-           // But if they have NO attendance records, we might want to pay full (for now) or 0.
-           // Let's check if they HAVE any records for this month.
-           const recordCount = db.prepare(`SELECT COUNT(*) as count FROM attendance WHERE worker_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ?`).get(worker.user_id, paddedMonth, year.toString());
-           if (recordCount.count > 0) netPay = 0;
-        }
+      const baseSalary = worker.base_salary || 25000;
+      
+      const attendances = await Attendance.find({ 
+        worker_id: worker.user_id, 
+        date: { $gte: startDate, $lte: endDate } 
+      }).lean();
 
-        db.prepare(`
-          INSERT INTO payroll (worker_id, month, year, base_salary, overtime, net_pay, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(worker.user_id, month, year, baseSalary, overtimePay, netPay + overtimePay, 'pending');
-        generatedCount++;
+      let presentDays = 0;
+      let overtimeHours = 0;
+
+      attendances.forEach(a => {
+        if (['present', 'late'].includes(a.status)) presentDays++;
+        if (a.overtime_status === 'approved') overtimeHours += (a.overtime_hours || 0);
+      });
+
+      const overtimePay = Math.round(overtimeHours * Number(overtime_rate || 0));
+      
+      let netPay = baseSalary;
+      if (presentDays > 0) {
+         netPay = Math.round((baseSalary / 26) * presentDays);
+      } else if (presentDays === 0 && attendances.length > 0) {
+         netPay = 0;
       }
-    });
 
-    transaction(workers);
+      await Payroll.create({
+        worker_id: worker.user_id,
+        month,
+        year,
+        base_salary: baseSalary,
+        overtime: overtimePay,
+        net_pay: netPay + overtimePay,
+        status: 'pending'
+      });
+      generatedCount++;
+    }
 
     res.status(201).json({ message: `Payroll generated for ${generatedCount} personnel based on operational attendance.` });
   } catch (error) {
@@ -81,11 +79,11 @@ const generatePayroll = (req, res) => {
   }
 };
 
-const updatePayrollStatus = (req, res) => {
+const updatePayrollStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
-    db.prepare('UPDATE payroll SET status = ? WHERE id = ?').run(status, id);
+    await Payroll.findByIdAndUpdate(id, { status });
     res.json({ message: 'Payment status updated' });
   } catch (error) {
     res.status(500).json({ error: error.message });

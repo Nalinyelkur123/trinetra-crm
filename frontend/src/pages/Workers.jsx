@@ -34,7 +34,8 @@ const Workers = () => {
       const res = await axios.get('/api/workers');
       setWorkers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to synchronize with the personnel registry.');
+      const errData = err.response?.data?.error;
+      setError((typeof errData === 'object' ? errData?.message : errData) || 'Failed to fetch workers.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +51,7 @@ const Workers = () => {
       const res = await axios.get(`/api/workers/${id}`);
       setSelectedWorker(res.data);
     } catch (err) {
-      alert('Failed to retrieve full dossier.');
+      alert('Failed to retrieve worker details.');
     } finally {
       setIsDetailsLoading(false);
     }
@@ -69,7 +70,7 @@ const Workers = () => {
       setWorkers(workers.filter(w => w.id !== itemToDelete.id));
       setShowDeleteModal(false);
     } catch (err) {
-      alert('Deletion failed. System integrity protected.');
+      alert('Deletion failed.');
     } finally {
       setIsDeleting(false);
       setItemToDelete(null);
@@ -97,8 +98,8 @@ const Workers = () => {
     <div className="space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight">Workforce Registry</h1>
-          <p className="text-sm text-muted-foreground mt-1 font-medium">Strategic personnel management</p>
+          <h1 className="text-3xl font-black tracking-tight">Workers</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">Worker management</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -111,14 +112,14 @@ const Workers = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
             <input 
               type="text" 
-              placeholder="Filter identity..." 
+              placeholder="Search workers..." 
               className="input-field pl-10 w-64"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <Link to="/admin/workers/new" className="btn-primary flex items-center gap-2">
-            <Plus size={18} /> Onboard Staff
+            <Plus size={18} /> Add Worker
           </Link>
         </div>
       </div>
@@ -134,10 +135,10 @@ const Workers = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-secondary/30">
-                <th className="px-8 py-5 caption">Personnel</th>
-                <th className="px-8 py-5 caption">Deployment</th>
-                <th className="px-8 py-5 caption">Client Portfolio</th>
-                <th className="px-8 py-5 caption">Authentication</th>
+                <th className="px-8 py-5 caption">Worker</th>
+                <th className="px-8 py-5 caption">Job Role</th>
+                <th className="px-8 py-5 caption">Client</th>
+                <th className="px-8 py-5 caption">Verification</th>
                 <th className="px-8 py-5 caption text-center">Status</th>
                 <th className="px-8 py-5 text-right">Actions</th>
               </tr>
@@ -169,7 +170,7 @@ const Workers = () => {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2 text-sm font-bold text-foreground/80">
                       <Briefcase size={14} className="text-primary" />
-                      {worker.job_role || 'General Staff'}
+                      {worker.job_role || 'Worker'}
                     </div>
                   </td>
                   <td className="px-8 py-6">
@@ -211,7 +212,7 @@ const Workers = () => {
                           initiateDelete(worker);
                         }}
                         className="p-2.5 bg-secondary rounded-xl text-muted-foreground hover:text-destructive transition-all"
-                        title="Delete Personnel"
+                        title="Delete Worker"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -257,8 +258,8 @@ const Workers = () => {
             onConfirm={confirmDelete}
             itemName={itemToDelete?.name}
             loading={isDeleting}
-            title="Confirm Personnel Purge"
-            description="You are about to permanently delete the dossier for {itemName}. This action will purge all attendance, payroll, and statutory records associated with this identity."
+            title="Confirm Delete Worker"
+            description="You are about to permanently delete {itemName}. This action will remove all records associated with this worker."
           />
         )}
       </AnimatePresence>
