@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { initDb } = require('./config/db');
+const { requireDb } = require('./config/db');
 
 const authRoutes = require('./routes/auth');
 const workerRoutes = require('./routes/workers');
@@ -28,9 +28,6 @@ const auditLogger = require('./middleware/auditLogger');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-
-// Initialize Database
-initDb();
 
 // Middleware
 app.use(helmet());
@@ -93,7 +90,7 @@ apiRouter.put('/assignments/:id', authenticateToken, updateClientAssignment);
 apiRouter.post('/assignments/deploy', authenticateToken, assignWorkerToClient);
 
 // Apply API Router
-app.use('/api', apiRouter);
+app.use('/api', requireDb, apiRouter);
 
 // Health Check
 app.get('/health', (req, res) => {
