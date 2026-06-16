@@ -64,24 +64,33 @@ const {
   updateClientAssignment
 } = require('./controllers/systemController');
 
+const mountRouter = (path, router) => {
+  if (typeof router !== 'function') {
+    console.error(`Skipping ${path}: route module did not export an Express router`);
+    return;
+  }
+
+  apiRouter.use(path, router);
+};
+
 // Register Sub-routes
-apiRouter.use('/auth', authRoutes);
-apiRouter.use('/workers', workerRoutes);
-apiRouter.use('/payroll', payrollRoutes);
-apiRouter.use('/dashboard', dashboardRoutes);
-apiRouter.use('/recruitment', recruitmentRoutes);
-apiRouter.use('/documents', documentRoutes);
-apiRouter.use('/clients', clientRoutes);
-apiRouter.use('/invoices', invoiceRoutes);
-apiRouter.use('/expenses', expenseRoutes);
-apiRouter.use('/reports', reportRoutes);
-apiRouter.use('/leaves', leaveRoutes);
-apiRouter.use('/shifts', shiftRoutes);
-apiRouter.use('/tasks', taskRoutes);
-apiRouter.use('/notifications', notificationRoutes);
-apiRouter.use('/performance', performanceRoutes);
-apiRouter.use('/monitoring', monitoringRoutes);
-apiRouter.use('/messages', messageRoutes);
+mountRouter('/auth', authRoutes);
+mountRouter('/workers', workerRoutes);
+mountRouter('/payroll', payrollRoutes);
+mountRouter('/dashboard', dashboardRoutes);
+mountRouter('/recruitment', recruitmentRoutes);
+mountRouter('/documents', documentRoutes);
+mountRouter('/clients', clientRoutes);
+mountRouter('/invoices', invoiceRoutes);
+mountRouter('/expenses', expenseRoutes);
+mountRouter('/reports', reportRoutes);
+mountRouter('/leaves', leaveRoutes);
+mountRouter('/shifts', shiftRoutes);
+mountRouter('/tasks', taskRoutes);
+mountRouter('/notifications', notificationRoutes);
+mountRouter('/performance', performanceRoutes);
+mountRouter('/monitoring', monitoringRoutes);
+mountRouter('/messages', messageRoutes);
 
 // System Routes
 apiRouter.get('/audit', authenticateToken, getAuditLogs);
