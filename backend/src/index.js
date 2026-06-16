@@ -101,9 +101,6 @@ apiRouter.post('/assignments', authenticateToken, createClientAssignment);
 apiRouter.put('/assignments/:id', authenticateToken, updateClientAssignment);
 apiRouter.post('/assignments/deploy', authenticateToken, assignWorkerToClient);
 
-// Apply API Router
-app.use('/api', requireDb, apiRouter);
-
 // Health Check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date(), port: PORT });
@@ -112,6 +109,10 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ message: 'Trinetra Backend Active' });
 });
+
+// Apply API Router. Vercel services strip routePrefix before forwarding.
+app.use('/api', requireDb, apiRouter);
+app.use('/', requireDb, apiRouter);
 
 if (require.main === module) {
   app.listen(PORT, () => {
