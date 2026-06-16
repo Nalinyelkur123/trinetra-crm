@@ -1,11 +1,13 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { initDb } = require('../config/db');
 const { User, Worker } = require('../models');
 
 const register = async (req, res) => {
   const { name, phone, email, password, role, company_id } = req.body;
   
   try {
+    await initDb();
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({
       name, phone, email, password: hashedPassword, role: role || 'worker', company_id
@@ -26,6 +28,7 @@ const login = async (req, res) => {
   const { identifier, password } = req.body; // identifier can be phone or email
   
   try {
+    await initDb();
     const user = await User.findOne({ $or: [{ phone: identifier }, { email: identifier }] });
     
     if (!user || !(await bcrypt.compare(password, user.password))) {

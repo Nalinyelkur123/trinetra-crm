@@ -3,7 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { requireDb } = require('./config/db');
+const dbConfig = require('./config/db');
+const requireDb = typeof dbConfig.requireDb === 'function'
+  ? dbConfig.requireDb
+  : (req, res, next) => next();
 
 const authRoutes = require('./routes/auth');
 const workerRoutes = require('./routes/workers');
