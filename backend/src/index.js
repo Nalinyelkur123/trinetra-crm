@@ -38,6 +38,9 @@ app.use(cors());
 app.use(express.json());
 app.use(auditLogger);
 
+// Global DB Connection Initialization (Essential for Vercel serverless)
+app.use(requireDb);
+
 // SUPER DIRECT ATTENDANCE ROUTE (Experimental Bypass)
 app.get('/api/attendance', authenticateToken, getDailyAttendance);
 app.post('/api/attendance', authenticateToken, markAttendance);
@@ -111,8 +114,8 @@ app.get('/', (req, res) => {
 });
 
 // Apply API Router. Vercel services strip routePrefix before forwarding.
-app.use('/api', requireDb, apiRouter);
-app.use('/', requireDb, apiRouter);
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 if (require.main === module) {
   app.listen(PORT, () => {

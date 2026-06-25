@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Plus, CheckCircle2, Clock, XCircle, AlertCircle, ChevronDown, Download } from 'lucide-react';
 import axios from 'axios';
+import { useAuthStore } from '../store/authStore';
 
 const Leaves = () => {
+  const { user } = useAuthStore();
   const [leaves, setLeaves] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState(null);
+  const [workers, setWorkers] = useState([]);
+  const [selectedWorkerId, setSelectedWorkerId] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -18,8 +22,23 @@ const Leaves = () => {
 
   useEffect(() => {
     fetchLeaves();
-    fetchLeaveBalance();
-  }, []);
+  }, [filterStatus]);
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchWorkers();
+    } else if (user?.id) {
+      setSelectedWorkerId(user.id);
+    }
+  }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    if (selectedWorkerId) {
+      fetchLeaveBalance(selectedWorkerId);
+    } else {
+      setLeaveBalance(null);
+    }
+  }, [selectedWorkerId]);
 
   const fetchLeaves = async () => {
     try {
@@ -32,9 +51,20 @@ const Leaves = () => {
     }
   };
 
-  const fetchLeaveBalance = async () => {
+  const fetchWorkers = async () => {
     try {
-      const res = await axios.get('/api/leaves/balance/1'); // Hardcoded for demo
+      const res = await axios.get('/api/workers');
+      const workerList = Array.isArray(res.data) ? res.data : [];
+      setWorkers(workerList);
+      setSelectedWorkerId((current) => current || workerList[0]?.id || '');
+    } catch (err) {
+      console.error('Failed to fetch workers');
+    }
+  };
+
+  const fetchLeaveBalance = async (workerId) => {
+    try {
+      const res = await axios.get(`/api/leaves/balance/${workerId}`);
       setLeaveBalance(res.data);
     } catch (err) {
       console.error('Failed to fetch leave balance');
@@ -44,14 +74,16 @@ const Leaves = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      if (!selectedWorkerId) return;
+
       await axios.post('/api/leaves', {
-        worker_id: 1,
+        worker_id: selectedWorkerId,
         ...formData
       });
       setShowForm(false);
       setFormData({ type: 'casual', start_date: '', end_date: '', reason: '' });
       fetchLeaves();
-      fetchLeaveBalance();
+      fetchLeaveBalance(selectedWorkerId);
     } catch (err) {
       console.error('Failed to request leave');
     }
@@ -140,7 +172,24 @@ const Leaves = () => {
                   <option value="annual">Annual Leave</option>
                 </select>
               </div>
-              <div></div>
+              {user?.role === 'admin' ? (
+                <div>
+                  <label className="block text-sm font-bold text-foreground mb-2">Worker</label>
+                  <select
+                    value={selectedWorkerId}
+                    onChange={(e) => setSelectedWorkerId(e.target.value)}
+                    className="input-field w-full py-3 px-4"
+                    required
+                  >
+                    <option value="" disabled>Select worker</option>
+                    {workers.map((worker) => (
+                      <option key={worker.id} value={worker.id}>{worker.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div></div>
+              )}
               <div>
                 <label className="block text-sm font-bold text-foreground mb-2">Start Date</label>
                 <input
@@ -175,7 +224,8 @@ const Leaves = () => {
               <motion.button
                 type="submit"
                 whileHover={{ scale: 1.02 }}
-                className="px-6 py-3 bg-primary text-white font-bold rounded-xl"
+                disabled={!selectedWorkerId}
+                className="px-6 py-3 bg-primary text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit Request
               </motion.button>

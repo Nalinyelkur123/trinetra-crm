@@ -1,31 +1,43 @@
 const mongoose = require('mongoose');
 
-let connectionPromise = null;
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 const initDb = async () => {
-  if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
-  }
-
-  if (connectionPromise) {
-    return connectionPromise;
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
   }
 
   if (!process.env.MONGODB_URI) {
     throw new Error('MONGODB_URI is not configured');
   }
 
-  connectionPromise = mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000
-  }).then((conn) => {
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    return conn.connection;
-  }).catch((error) => {
-    connectionPromise = null;
-    throw error;
-  });
+  if (!cached.promise || mongoose.connection.readyState === 0) {
+    const opts = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 10000
+    };
 
-  return connectionPromise;
+    cached.promise = mongoose.connect(process.env.MONGODB_URI, opts)
+      .then((mongooseInstance) => {
+        console.log(`MongoDB Connected: ${mongooseInstance.connection.host}`);
+        return mongooseInstance.connection;
+      })
+      .catch((error) => {
+        cached.promise = null;
+        throw error;
+      });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+    return cached.conn;
+  } catch (error) {
+    cached.promise = null;
+    throw error;
+  }
 };
 
 const requireDb = async (req, res, next) => {
