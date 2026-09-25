@@ -80,6 +80,22 @@ function App() {
           path="/worker" 
           element={token && user?.role === 'worker' ? <WorkerDashboard /> : <Navigate to="/login" />} 
         />
+        <Route 
+          path="/worker/profile" 
+          element={token && user?.role === 'worker' ? <WorkerDashboard defaultTab="profile" /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/worker/attendance" 
+          element={token && user?.role === 'worker' ? <WorkerDashboard defaultTab="attendance" /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/worker/documents" 
+          element={token && user?.role === 'worker' ? <WorkerDashboard defaultTab="documents" /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/worker/payslips" 
+          element={token && user?.role === 'worker' ? <WorkerDashboard defaultTab="payslips" /> : <Navigate to="/login" />} 
+        />
       </Route>
 
       <Route path="/" element={<Navigate to={token ? (user?.role === 'admin' ? '/admin' : '/worker') : '/login'} />} />

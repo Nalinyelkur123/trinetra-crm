@@ -2,19 +2,32 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Calendar, CheckCircle2, XCircle, MapPin, Users,
-  ChevronLeft, ChevronRight, Filter, Search, Activity, Clock, Briefcase, RefreshCw, Check, AlertCircle
+  ChevronLeft, ChevronRight, Filter, Search, Activity, Clock, Briefcase, RefreshCw, Check, AlertCircle, Plus, X
 } from 'lucide-react';
 import axios from 'axios';
 import Pagination from '../components/Pagination';
 
 const Attendance = () => {
   const [attendanceRecord, setAttendanceRecord] = useState([]);
+  const [workersList, setWorkersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState('All Clients');
   const [selectedRole, setSelectedRole] = useState('All Roles');
   const [savingId, setSavingId] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submittingModal, setSubmittingModal] = useState(false);
+  const [modalForm, setModalForm] = useState({
+    worker_id: '',
+    date: new Date().toISOString().split('T')[0],
+    status: 'present',
+    shift_type: 'General',
+    check_in_time: '',
+    check_out_time: '',
+    overtime_hours: 0,
+    location: 'Main HQ'
+  });
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,9 +45,75 @@ const Attendance = () => {
     }
   };
 
+  const fetchWorkers = async () => {
+    try {
+      const res = await axios.get('/api/workers');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setWorkersList(list);
+      if (list.length > 0 && !modalForm.worker_id) {
+        setModalForm(prev => ({ ...prev, worker_id: list[0].id }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch workers list');
+    }
+  };
+
   useEffect(() => {
     fetchAttendance();
   }, [date]);
+
+  useEffect(() => {
+    fetchWorkers();
+  }, []);
+
+  const handleModalSubmit = async (e) => {
+    e.preventDefault();
+    if (!modalForm.worker_id) {
+      alert('Please select a worker');
+      return;
+    }
+    setSubmittingModal(true);
+    try {
+      let checkInISO = null;
+      let checkOutISO = null;
+      if (modalForm.check_in_time) {
+        checkInISO = new Date(`${modalForm.date}T${modalForm.check_in_time}:00`).toISOString();
+      }
+      if (modalForm.check_out_time) {
+        checkOutISO = new Date(`${modalForm.date}T${modalForm.check_out_time}:00`).toISOString();
+      }
+
+      await axios.post('/api/attendance', {
+        worker_id: modalForm.worker_id,
+        date: modalForm.date,
+        status: modalForm.status,
+        shift_type: modalForm.shift_type,
+        location: modalForm.location,
+        overtime_hours: parseFloat(modalForm.overtime_hours) || 0,
+        check_in_time: checkInISO,
+        check_out_time: checkOutISO,
+        status_override: true
+      });
+
+      setShowAddModal(false);
+      // Reset form
+      setModalForm({
+        worker_id: workersList[0]?.id || '',
+        date: date,
+        status: 'present',
+        shift_type: 'General',
+        check_in_time: '',
+        check_out_time: '',
+        overtime_hours: 0,
+        location: 'Main HQ'
+      });
+      fetchAttendance();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to record attendance');
+    } finally {
+      setSubmittingModal(false);
+    }
+  };
 
   const updateStatus = async (workerId, newStatus, shiftType = 'General', overtimeHours = 0) => {
     setSavingId(workerId);
@@ -144,6 +223,19 @@ const Attendance = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <button 
+            onClick={() => {
+              setModalForm(prev => ({
+                ...prev,
+                date: date,
+                worker_id: prev.worker_id || workersList[0]?.id || ''
+              }));
+              setShowAddModal(true);
+            }}
+            className="btn-primary flex items-center gap-2 text-xs font-black uppercase tracking-wider px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/20 whitespace-nowrap"
+          >
+            <Plus size={16} /> Record Attendance
+          </button>
         </div>
       </div>
 
@@ -224,9 +316,9 @@ const Attendance = () => {
                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
                           {record.worker_name ? record.worker_name[0] : '?'}
                        </div>
-                       <div>
+                        <div>
                           <p className="text-sm font-bold text-foreground">{record.worker_name}</p>
-                          <p className="text-[10px] text-muted-foreground font-black uppercase mt-0.5">TRN-{record.worker_id}</p>
+                          <p className="text-[10px] text-muted-foreground font-black uppercase mt-0.5">TRN-{record.worker_id?.toString().slice(-6).toUpperCase()}</p>
                        </div>
                     </div>
                   </td>
@@ -258,7 +350,14 @@ const Attendance = () => {
                   <td className="px-6 py-6">
                     <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-500/5 px-2 py-1 rounded-lg border border-emerald-500/10">
                       <Clock size={12} />
-                      {record.check_in_time ? new Date(`2000-01-01T${record.check_in_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                      {(() => {
+                        if (!record.check_in_time) return '--:--';
+                        const d = new Date(record.check_in_time);
+                        if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const fallback = new Date(`2000-01-01T${record.check_in_time}`);
+                        if (!isNaN(fallback.getTime())) return fallback.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        return '--:--';
+                      })()}
                     </div>
                   </td>
                   <td className="px-6 py-6">
@@ -310,6 +409,160 @@ const Attendance = () => {
           />
         )}
       </div>
+
+      {/* Record Working Attendant Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="modal-overlay">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="modal-content max-w-xl p-8 overflow-y-auto max-h-[90vh] custom-scrollbar"
+            >
+              <div className="flex items-center justify-between pb-4 mb-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    <Calendar size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-foreground">Record Working Attendant</h3>
+                    <p className="caption text-muted-foreground">Log or update daily worker attendance</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowAddModal(false)}
+                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleModalSubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="caption">Select Personnel / Attendant</label>
+                  <select 
+                    required
+                    value={modalForm.worker_id}
+                    onChange={(e) => setModalForm({ ...modalForm, worker_id: e.target.value })}
+                    className="input-field w-full py-2.5 text-xs font-bold"
+                  >
+                    <option value="">-- Choose Worker --</option>
+                    {workersList.map(w => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.job_role || 'Worker'}) - {w.client_name || 'No Client'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="caption">Attendance Date</label>
+                    <input 
+                      type="date"
+                      required
+                      value={modalForm.date}
+                      onChange={(e) => setModalForm({ ...modalForm, date: e.target.value })}
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Attendance Status</label>
+                    <select 
+                      value={modalForm.status}
+                      onChange={(e) => setModalForm({ ...modalForm, status: e.target.value })}
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    >
+                      <option value="present">Present (Full Day)</option>
+                      <option value="late">Late Arrival</option>
+                      <option value="half-day">Half Day</option>
+                      <option value="absent">Absent</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="caption">Check-In Time</label>
+                    <input 
+                      type="time"
+                      value={modalForm.check_in_time}
+                      onChange={(e) => setModalForm({ ...modalForm, check_in_time: e.target.value })}
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Check-Out Time</label>
+                    <input 
+                      type="time"
+                      value={modalForm.check_out_time}
+                      onChange={(e) => setModalForm({ ...modalForm, check_out_time: e.target.value })}
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="caption">Shift Type</label>
+                    <select 
+                      value={modalForm.shift_type}
+                      onChange={(e) => setModalForm({ ...modalForm, shift_type: e.target.value })}
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    >
+                      <option value="General">General</option>
+                      <option value="Morning">Morning</option>
+                      <option value="Afternoon">Afternoon</option>
+                      <option value="Night">Night</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">OT Hours</label>
+                    <input 
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="24"
+                      value={modalForm.overtime_hours}
+                      onChange={(e) => setModalForm({ ...modalForm, overtime_hours: e.target.value })}
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Location / Site</label>
+                    <input 
+                      type="text"
+                      value={modalForm.location}
+                      onChange={(e) => setModalForm({ ...modalForm, location: e.target.value })}
+                      placeholder="e.g. Main HQ"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border flex justify-end gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAddModal(false)}
+                    className="btn-secondary px-5 py-2.5 text-xs font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={submittingModal}
+                    className="btn-primary px-6 py-2.5 text-xs font-black uppercase tracking-wider flex items-center gap-2"
+                  >
+                    {submittingModal ? <RefreshCw size={14} className="animate-spin" /> : <Check size={16} />}
+                    Save Attendance
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

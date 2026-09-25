@@ -24,6 +24,18 @@ const Clients = () => {
   const [showWorkforceModal, setShowWorkforceModal] = useState(false);
   const [activeClientName, setActiveClientName] = useState('');
   
+  // Site Intel & Assignments States
+  const [showAssignmentsModal, setShowAssignmentsModal] = useState(false);
+  const [clientAssignments, setClientAssignments] = useState([]);
+  const [activeClientId, setActiveClientId] = useState('');
+  const [showAddAssignmentForm, setShowAddAssignmentForm] = useState(false);
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [assignmentForm, setAssignmentForm] = useState({
+    name: '', location: '', description: '', manager_name: '', contact_phone: '',
+    start_date: new Date().toISOString().split('T')[0], end_date: '',
+    shift_start: '09:00', shift_end: '18:00', working_hours: 8.0
+  });
+  
   // Delete States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -53,7 +65,12 @@ const Clients = () => {
       }
       setShowModal(false);
       setEditingClient(null);
-      setFormData({ name: '', email: '', phone: '', contact_person: '', address: '', contract_terms: '', billing_rate: '', gst_number: '' });
+      setFormData({
+        name: '', email: '', phone: '', contact_person: '',
+        address: '', contract_terms: '', billing_rate: '', gst_number: '',
+        agreement_start: '', agreement_end: '', payment_terms: 'Net 30', status: 'active',
+        shift_start: '09:00', shift_end: '18:00', working_hours: 8.0
+      });
       fetchClients();
     } catch (err) {
       alert('Operation failed');
@@ -68,6 +85,44 @@ const Clients = () => {
       setShowWorkforceModal(true);
     } catch (err) {
       console.error('Failed to fetch workforce');
+    }
+  };
+
+  const fetchClientAssignments = async (clientId, clientName) => {
+    try {
+      setActiveClientId(clientId);
+      setActiveClientName(clientName);
+      const res = await axios.get('/api/assignments');
+      const all = Array.isArray(res.data) ? res.data : [];
+      const filtered = all.filter(a => (a.client_id?._id === clientId || a.client_id === clientId || a.client_name === clientName));
+      setClientAssignments(filtered);
+      setShowAssignmentsModal(true);
+    } catch (err) {
+      console.error('Failed to fetch client assignments');
+    }
+  };
+
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    if (!activeClientId) return;
+    setIsSavingAssignment(true);
+    try {
+      await axios.post('/api/assignments', {
+        ...assignmentForm,
+        client_id: activeClientId
+      });
+      setShowAddAssignmentForm(false);
+      setAssignmentForm({
+        name: '', location: '', description: '', manager_name: '', contact_phone: '',
+        start_date: new Date().toISOString().split('T')[0], end_date: '',
+        shift_start: '09:00', shift_end: '18:00', working_hours: 8.0
+      });
+      // Refresh assignments
+      fetchClientAssignments(activeClientId, activeClientName);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to create site assignment');
+    } finally {
+      setIsSavingAssignment(false);
     }
   };
 
@@ -92,8 +147,9 @@ const Clients = () => {
   };
 
   const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.contact_person.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (c.contact_person || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -141,9 +197,20 @@ const Clients = () => {
               
               {/* Action Toolbar (Hover Only) */}
               <div className="absolute top-8 right-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                 <button onClick={() => { setEditingClient(client); setFormData(client); setShowModal(true); }} className="p-3 bg-white dark:bg-secondary rounded-2xl shadow-xl shadow-black/5 hover:text-primary hover:scale-110 transition-all">
-                    <Edit2 size={16} />
-                 </button>
+                  <button 
+                    onClick={() => { 
+                      setEditingClient(client); 
+                      setFormData({
+                        ...client,
+                        agreement_start: client.agreement_start ? client.agreement_start.split('T')[0] : '',
+                        agreement_end: client.agreement_end ? client.agreement_end.split('T')[0] : ''
+                      }); 
+                      setShowModal(true); 
+                    }} 
+                    className="p-3 bg-white dark:bg-secondary rounded-2xl shadow-xl shadow-black/5 hover:text-primary hover:scale-110 transition-all"
+                  >
+                     <Edit2 size={16} />
+                  </button>
                   <button 
                     onClick={() => initiateDelete(client)}
                     className="p-3 bg-white dark:bg-secondary rounded-2xl shadow-xl shadow-black/5 hover:text-destructive hover:scale-110 transition-all"
@@ -205,7 +272,10 @@ const Clients = () => {
                 >
                   <Users size={16} /> Workforce
                 </button>
-                <button className="flex items-center justify-center gap-3 py-4 bg-secondary text-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-border transition-all">
+                <button 
+                  onClick={() => fetchClientAssignments(client.id, client.name)}
+                  className="flex items-center justify-center gap-3 py-4 bg-secondary text-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-border transition-all"
+                >
                   <MapPin size={16} /> Site Intel
                 </button>
               </div>
@@ -396,6 +466,212 @@ const Clients = () => {
                 <button type="submit" className="px-12 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all">Establish Contract</button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {showAssignmentsModal && (
+        <div className="modal-overlay">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+            animate={{ scale: 1, opacity: 1, y: 0 }} 
+            className="modal-content max-w-4xl p-10 overflow-y-auto max-h-[90vh] custom-scrollbar"
+          >
+            <div className="flex items-center justify-between pb-6 mb-8 border-b border-border">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center font-bold">
+                  <MapPin size={24} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight">Site Intelligence & Assignments</h2>
+                  <p className="caption text-primary mt-0.5">{activeClientName}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowAddAssignmentForm(!showAddAssignmentForm)}
+                  className="btn-primary flex items-center gap-2 text-xs px-5 py-2.5"
+                >
+                  <Plus size={16} /> {showAddAssignmentForm ? 'View Sites' : 'New Site Assignment'}
+                </button>
+                <button onClick={() => setShowAssignmentsModal(false)} className="p-2.5 rounded-xl hover:bg-secondary">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {showAddAssignmentForm ? (
+              <form onSubmit={handleCreateAssignment} className="space-y-6 bg-secondary/20 p-6 rounded-2xl border border-border/50">
+                <h3 className="text-base font-black text-foreground">Configure New Site / Assignment</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="caption">Assignment / Site Name</label>
+                    <input 
+                      required
+                      placeholder="e.g. Tower B Facility Ops"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.name}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Location / Address</label>
+                    <input 
+                      required
+                      placeholder="e.g. Sector 62, Noida"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.location}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, location: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Manager / Supervisor Name</label>
+                    <input 
+                      placeholder="e.g. Rajesh Verma"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.manager_name}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, manager_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Contact Phone</label>
+                    <input 
+                      placeholder="+91 98765 43210"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.contact_phone}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, contact_phone: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Deployment Start Date</label>
+                    <input 
+                      type="date"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.start_date}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, start_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Deployment End Date</label>
+                    <input 
+                      type="date"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.end_date}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, end_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Shift Timings</label>
+                    <div className="flex gap-2 items-center">
+                      <input 
+                        type="time"
+                        className="input-field w-full py-2 text-xs"
+                        value={assignmentForm.shift_start}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, shift_start: e.target.value })}
+                      />
+                      <span className="text-xs text-muted-foreground">to</span>
+                      <input 
+                        type="time"
+                        className="input-field w-full py-2 text-xs"
+                        value={assignmentForm.shift_end}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, shift_end: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="caption">Working Hours (Daily)</label>
+                    <input 
+                      type="number"
+                      step="0.5"
+                      className="input-field w-full py-2.5 text-xs font-bold"
+                      value={assignmentForm.working_hours}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, working_hours: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="caption">Operational Scope / Description</label>
+                    <textarea 
+                      placeholder="Details of the operational mandate and site scope..."
+                      className="input-field w-full py-2 text-xs resize-none h-20"
+                      value={assignmentForm.description}
+                      onChange={(e) => setAssignmentForm({ ...assignmentForm, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-3 border-t border-border">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAddAssignmentForm(false)}
+                    className="btn-secondary px-5 py-2 text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSavingAssignment}
+                    className="btn-primary px-6 py-2 text-xs font-bold"
+                  >
+                    {isSavingAssignment ? 'Creating...' : 'Create Site Assignment'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                {clientAssignments.length === 0 ? (
+                  <div className="py-16 text-center bg-secondary/10 rounded-3xl border border-dashed border-border">
+                    <MapPin className="mx-auto text-muted-foreground/30 mb-3" size={44} />
+                    <p className="text-sm font-bold text-foreground">No Site Assignments Recorded</p>
+                    <p className="text-xs text-muted-foreground mt-1 mb-4">Initialize the first operational site assignment for this strategic partner.</p>
+                    <button 
+                      onClick={() => setShowAddAssignmentForm(true)}
+                      className="btn-primary px-6 py-2.5 text-xs"
+                    >
+                      <Plus size={16} /> Create Assignment
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {clientAssignments.map(a => (
+                      <div key={a.id} className="p-6 rounded-2xl bg-secondary/20 border border-border/60 hover:border-primary/40 transition-all space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="text-base font-black text-foreground">{a.name}</h4>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                              <MapPin size={12} className="text-primary" /> {a.location || 'Site Location Unspecified'}
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-lg bg-primary/10 text-primary">
+                            {a.status || 'Active'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-border/40">
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Manager</p>
+                            <p className="font-semibold text-foreground truncate">{a.manager_name || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Active Workforce</p>
+                            <p className="font-black text-primary">{a.worker_count || 0} Staff</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Shift Timing</p>
+                            <p className="font-medium text-foreground">{a.shift_start || '09:00'} - {a.shift_end || '18:00'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Contact</p>
+                            <p className="font-medium text-foreground truncate">{a.contact_phone || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-8 pt-6 border-t border-border flex justify-end">
+              <button onClick={() => setShowAssignmentsModal(false)} className="btn-secondary px-8">Dismiss</button>
+            </div>
           </motion.div>
         </div>
       )}

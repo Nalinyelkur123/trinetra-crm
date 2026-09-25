@@ -9,6 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const COLORS = ['#2563eb', '#6366f1', '#f43f5e', '#10b981'];
@@ -60,9 +61,11 @@ const StatCard = ({ title, value, icon: Icon, change, trend, loading }) => (
 );
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [timeframe, setTimeframe] = useState('7D');
   const [newNote, setNewNote] = useState({ content: '', priority: 'normal' });
 
   const fetchStats = async () => {
@@ -112,13 +115,15 @@ const AdminDashboard = () => {
           <motion.button 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={fetchStats}
             className="btn-secondary px-5 py-2.5 text-xs gap-2"
           >
-            <Filter size={16} /> Filters
+            <Filter size={16} /> Refresh
           </motion.button>
           <motion.button 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/admin/audit')}
             className="btn-primary px-5 py-2.5 text-xs gap-2"
           >
             <ShieldCheck size={18} /> Audit Trail
@@ -179,7 +184,13 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex gap-2 p-1 bg-secondary/50 rounded-xl">
                    {['7D', '1M', '3M'].map(t => (
-                     <button key={t} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${t === '7D' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>{t}</button>
+                     <button 
+                       key={t} 
+                       onClick={() => setTimeframe(t)}
+                       className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${timeframe === t ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                     >
+                       {t}
+                     </button>
                    ))}
                 </div>
               </div>
@@ -219,7 +230,7 @@ const AdminDashboard = () => {
                           <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${note.priority === 'high' ? 'bg-rose-500' : 'bg-emerald-500'}`}>
                              {note.priority}
                           </span>
-                          <p className="text-[8px] opacity-60 font-bold">{new Date(note.created_at).toLocaleDateString()}</p>
+                          <p className="text-[8px] opacity-60 font-bold">{new Date(note.createdAt || note.created_at || Date.now()).toLocaleDateString()}</p>
                        </div>
                        <p className="text-xs font-medium leading-relaxed">{note.content}</p>
                     </div>
@@ -247,14 +258,20 @@ const AdminDashboard = () => {
                           <p className="text-sm font-bold text-foreground">{leave.worker_name}</p>
                           <p className="text-[10px] font-black text-rose-500 uppercase mt-0.5">{leave.type}</p>
                        </div>
-                       <button className="p-2 bg-white rounded-xl shadow-sm text-primary hover:bg-primary hover:text-white transition-all">
+                       <button 
+                         onClick={() => navigate('/admin/leaves')}
+                         className="p-2 bg-white rounded-xl shadow-sm text-primary hover:bg-primary hover:text-white transition-all"
+                       >
                           <ChevronRight size={16} />
                        </button>
                     </div>
                  ))}
                  {!stats?.leaves?.length && <p className="text-xs text-center py-4 text-muted-foreground">No pending leave requests.</p>}
               </div>
-              <button className="w-full mt-6 py-3 border border-border rounded-xl text-[10px] font-black text-muted-foreground uppercase hover:bg-secondary transition-all">
+              <button 
+                onClick={() => navigate('/admin/leaves')}
+                className="w-full mt-6 py-3 border border-border rounded-xl text-[10px] font-black text-muted-foreground uppercase hover:bg-secondary transition-all"
+              >
                  View All Requests
               </button>
            </div>

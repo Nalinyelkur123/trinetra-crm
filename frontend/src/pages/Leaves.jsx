@@ -89,6 +89,27 @@ const Leaves = () => {
     }
   };
 
+  const handleApprove = async (leaveId) => {
+    try {
+      await axios.put(`/api/leaves/${leaveId}/approve`);
+      fetchLeaves();
+      if (selectedWorkerId) fetchLeaveBalance(selectedWorkerId);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to approve leave request');
+    }
+  };
+
+  const handleReject = async (leaveId) => {
+    const reason = prompt('Optional reason for rejection:') || 'Operational requirements';
+    try {
+      await axios.put(`/api/leaves/${leaveId}/reject`, { rejection_reason: reason });
+      fetchLeaves();
+      if (selectedWorkerId) fetchLeaveBalance(selectedWorkerId);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to reject leave request');
+    }
+  };
+
   const getStatusIcon = (status) => {
     const icons = {
       pending: <Clock size={16} className="text-amber-500" />,
@@ -298,6 +319,26 @@ const Leaves = () => {
                     <p className="text-sm text-muted-foreground">{leave.reason}</p>
                     <p className="text-xs text-muted-foreground mt-2">{leave.start_date} to {leave.end_date}</p>
                   </div>
+                  {user?.role === 'admin' && leave.status === 'pending' && (
+                    <div className="flex items-center gap-2 ml-4">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleApprove(leave.id)}
+                        className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-all"
+                      >
+                        <CheckCircle2 size={14} /> Approve
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleReject(leave.id)}
+                        className="px-4 py-2 bg-rose-600/10 text-rose-600 text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-rose-600 hover:text-white transition-all"
+                      >
+                        <XCircle size={14} /> Reject
+                      </motion.button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

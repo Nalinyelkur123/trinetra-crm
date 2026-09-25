@@ -10,7 +10,7 @@ const createShift = async (req, res) => {
       worker_id,
       shift_date: new Date(shift_date),
       status: { $ne: 'cancelled' },
-      $not: { $or: [{ end_time: { $lte: start_time } }, { start_time: { $gte: end_time } }] }
+      $nor: [{ end_time: { $lte: start_time } }, { start_time: { $gte: end_time } }]
     });
 
     if (conflict) return res.status(409).json({ error: 'Worker already has an overlapping shift' });
@@ -45,7 +45,7 @@ const bulkCreateShifts = async (req, res) => {
         worker_id: workerId,
         shift_date: new Date(shift_date),
         status: { $ne: 'cancelled' },
-        $not: { $or: [{ end_time: { $lte: start_time } }, { start_time: { $gte: end_time } }] }
+        $nor: [{ end_time: { $lte: start_time } }, { start_time: { $gte: end_time } }]
       });
 
       if (conflict) {

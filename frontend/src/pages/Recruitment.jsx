@@ -15,6 +15,10 @@ const Recruitment = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [candidateForm, setCandidateForm] = useState({ name: '', email: '', phone: '', job_role: '' });
+  const [isSubmittingCandidate, setIsSubmittingCandidate] = useState(false);
+
   // Delete States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -39,6 +43,25 @@ const Recruitment = () => {
   useEffect(() => {
     fetchCandidates();
   }, []);
+
+  const handleCreateCandidate = async (e) => {
+    e.preventDefault();
+    if (!candidateForm.name) {
+      alert('Please enter a candidate name');
+      return;
+    }
+    setIsSubmittingCandidate(true);
+    try {
+      await axios.post('/api/recruitment', candidateForm);
+      setShowAddModal(false);
+      setCandidateForm({ name: '', email: '', phone: '', job_role: '' });
+      fetchCandidates();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add candidate');
+    } finally {
+      setIsSubmittingCandidate(false);
+    }
+  };
 
   const updateStatus = async (id, status) => {
     try {
@@ -87,16 +110,36 @@ const Recruitment = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Simulate processing
-    alert(`Processing ${file.name}... Ingesting personnel assets.`);
-    setTimeout(() => {
-      alert("Bulk ingestion successful. Personnel assets mapped to database.");
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length <= 1) {
+        alert('Spreadsheet is empty or only contains header columns.');
+        return;
+      }
+      
+      let imported = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+        if (parts.length >= 1 && parts[0]) {
+          await axios.post('/api/recruitment', {
+            name: parts[0],
+            email: parts[1] || '',
+            phone: parts[2] || '',
+            job_role: parts[3] || 'Staff'
+          });
+          imported++;
+        }
+      }
+      alert(`Bulk ingestion complete: ${imported} candidate profile(s) deployed to recruitment pipeline.`);
       fetchCandidates();
-    }, 1500);
+    } catch (err) {
+      alert('Failed to parse spreadsheet file.');
+    }
   };
 
   const filteredCandidates = candidates.filter(c => 
@@ -121,12 +164,18 @@ const Recruitment = () => {
           <h1 className="text-3xl font-black tracking-tight text-foreground">Recruitment Hub</h1>
           <p className="text-sm text-muted-foreground mt-1 font-medium">Workforce Scaling & Strategic Integration</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary flex items-center gap-2 text-xs font-black uppercase tracking-widest px-6 shadow-lg shadow-primary/20"
+          >
+            <UserPlus size={18} /> Add Candidate
+          </button>
           <button 
             onClick={() => navigate('/admin/workers/new')}
-            className="btn-primary flex items-center gap-2 text-xs font-black uppercase tracking-widest px-8"
+            className="btn-secondary flex items-center gap-2 text-xs font-black uppercase tracking-widest px-6"
           >
-            <UserPlus size={18} /> New Entry
+            <Users size={18} /> Onboard Worker
           </button>
           <button 
             onClick={fetchCandidates}
@@ -354,6 +403,93 @@ const Recruitment = () => {
               </div>
            </div>
       </div>
+
+      {showAddModal && (
+        <div className="modal-overlay">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="modal-content max-w-lg p-8 custom-scrollbar"
+          >
+            <div className="flex items-center justify-between pb-4 mb-6 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-foreground">Add Candidate</h3>
+                  <p className="caption text-muted-foreground">Register candidate in recruitment pipeline</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="p-2 rounded-xl hover:bg-secondary">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCandidate} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="caption">Candidate Full Name</label>
+                <input 
+                  required
+                  placeholder="e.g. Ramesh Chandra"
+                  className="input-field w-full py-2.5 text-xs font-bold"
+                  value={candidateForm.name}
+                  onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="caption">Email Address</label>
+                  <input 
+                    type="email"
+                    placeholder="ramesh@example.com"
+                    className="input-field w-full py-2.5 text-xs font-bold"
+                    value={candidateForm.email}
+                    onChange={(e) => setCandidateForm({ ...candidateForm, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="caption">Phone Number</label>
+                  <input 
+                    placeholder="+91 98765 43210"
+                    className="input-field w-full py-2.5 text-xs font-bold"
+                    value={candidateForm.phone}
+                    onChange={(e) => setCandidateForm({ ...candidateForm, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="caption">Target Job Role</label>
+                <input 
+                  placeholder="e.g. Security Supervisor / Electrician"
+                  className="input-field w-full py-2.5 text-xs font-bold"
+                  value={candidateForm.job_role}
+                  onChange={(e) => setCandidateForm({ ...candidateForm, job_role: e.target.value })}
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setShowAddModal(false)}
+                  className="btn-secondary px-5 py-2.5 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmittingCandidate}
+                  className="btn-primary px-6 py-2.5 text-xs font-bold"
+                >
+                  {isSubmittingCandidate ? 'Registering...' : 'Add to Pipeline'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       <DeleteConfirmationModal
         isOpen={showDeleteModal}

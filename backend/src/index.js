@@ -32,11 +32,16 @@ const auditLogger = require('./middleware/auditLogger');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+const path = require('path');
+
 // Middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(express.json());
 app.use(auditLogger);
+
+// Static uploads serving
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Global DB Connection Initialization (Essential for Vercel serverless)
 app.use(requireDb);
@@ -53,7 +58,9 @@ const apiRouter = express.Router();
 // Rate limiting for API
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200 
+  max: process.env.NODE_ENV === 'development' ? 5000 : 200,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 apiRouter.use(limiter);
 

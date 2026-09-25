@@ -1,16 +1,24 @@
-import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Calendar, Briefcase, DollarSign, Settings, 
-  LogOut, Menu, X, Bell, LayoutDashboard, FileText, Search, UserPlus, Shield, Activity, RefreshCw, Building2, Clock
+  LogOut, Menu, X, Bell, LayoutDashboard, FileText, Search, UserPlus, Shield, Activity, RefreshCw, Building2, Clock, Check
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import ThemeToggle from './ThemeToggle';
 
 const Layout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'System Healthy', msg: 'MongoDB cluster connected and active.', time: 'Just now', unread: true },
+    { id: 2, title: 'Compliance Check', msg: 'Audit logging enabled across all endpoints.', time: '10m ago', unread: true }
+  ]);
+  const notifRef = useRef(null);
+  const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { theme } = useThemeStore();
   const location = useLocation();
@@ -166,30 +174,90 @@ const Layout = () => {
               <Menu size={20} />
             </motion.button>
             <p className="caption hidden md:block">Command Center</p>
-            <motion.div 
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = searchQuery.toLowerCase().trim();
+                if (!q) return;
+                if (q.includes('worker')) navigate('/admin/workers');
+                else if (q.includes('attend')) navigate('/admin/attendance');
+                else if (q.includes('bill') || q.includes('invoice')) navigate('/admin/billing');
+                else if (q.includes('pay')) navigate('/admin/payroll');
+                else if (q.includes('client')) navigate('/admin/clients');
+                else if (q.includes('expense')) navigate('/admin/expenses');
+                else if (q.includes('leave')) navigate('/admin/leaves');
+                else if (q.includes('shift')) navigate('/admin/shifts');
+                else if (q.includes('task')) navigate('/admin/tasks');
+                else if (q.includes('report')) navigate('/admin/reports');
+                else if (q.includes('audit')) navigate('/admin/audit');
+                else if (q.includes('setting')) navigate('/admin/settings');
+                else navigate('/admin/workers');
+                setSearchQuery('');
+              }}
               className="relative hidden sm:block"
-              whileFocus={{ scale: 1.02 }}
             >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={16} />
-              <motion.input 
+              <input 
                 type="text" 
-                placeholder="Search system..." 
-                className="bg-secondary/30 border border-border/50 rounded-xl py-2.5 pl-10 pr-4 text-sm w-48 md:w-64 focus:w-80 transition-all outline-none focus:border-primary focus:shadow-md focus:bg-secondary/50"
-                whileFocus={{ boxShadow: '0 0 20px rgba(59, 130, 246, 0.1)' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Jump to page (e.g. workers, payroll)..." 
+                className="bg-secondary/30 border border-border/50 rounded-xl py-2.5 pl-10 pr-4 text-xs w-48 md:w-64 focus:w-80 transition-all outline-none focus:border-primary focus:shadow-md focus:bg-secondary/50 text-foreground"
               />
-            </motion.div>
+            </form>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 pr-4 border-r border-border">
+            <div className="flex items-center gap-2 pr-4 border-r border-border relative">
               <ThemeToggle />
-              <motion.button 
-                whileHover={{ scale: 1.05, rotate: 10 }}
-                whileTap={{ scale: 0.95 }}
-                className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-all hover:shadow-md"
-              >
-                <Bell size={20} />
-              </motion.button>
+              <div className="relative">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2.5 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-all hover:shadow-md relative"
+                >
+                  <Bell size={20} />
+                  {notifications.some(n => n.unread) && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full animate-ping" />
+                  )}
+                  {notifications.some(n => n.unread) && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
+                  )}
+                </motion.button>
+
+                <AnimatePresence>
+                  {showNotifications && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-80 bg-card border border-border rounded-2xl shadow-2xl p-4 z-50 space-y-3"
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                        <span className="text-xs font-black uppercase tracking-wider text-foreground">Notifications</span>
+                        <button 
+                          onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
+                          className="text-[10px] text-primary font-bold hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {notifications.map(n => (
+                          <div key={n.id} className="p-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/60 transition-all text-left">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold text-foreground">{n.title}</p>
+                              <span className="text-[9px] text-muted-foreground">{n.time}</span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{n.msg}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
             
             <div className="flex items-center gap-3">

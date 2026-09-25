@@ -58,6 +58,31 @@ const Payroll = () => {
     }
   };
 
+  const exportPayrollCSV = () => {
+    if (!payrollData.length) {
+      alert('No payroll data to export.');
+      return;
+    }
+    const headers = ['Record ID', 'Worker Name', 'Job Role', 'Month', 'Year', 'Net Pay', 'Status'];
+    const rows = payrollData.map(r => [
+      `TRN-PY-${r.id}`,
+      `"${r.worker_name || 'Worker'}"`,
+      `"${r.job_role || 'Staff'}"`,
+      r.month,
+      r.year,
+      r.net_pay || 0,
+      r.status
+    ]);
+    const csv = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encoded = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', encoded);
+    link.setAttribute('download', `payroll_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const totalOutflow = payrollData.reduce((acc, curr) => acc + (curr.net_pay || 0), 0);
   const activeWorkersCount = new Set(payrollData.map(p => p.worker_id)).size;
   const complianceRate = payrollData.length ? Math.round((payrollData.filter(p => p.status === 'paid').length / payrollData.length) * 100) : 100;
@@ -122,7 +147,7 @@ const Payroll = () => {
               <Landmark className="text-primary" size={20} />
               <h3 className="text-sm font-black uppercase tracking-widest">Payroll Records</h3>
            </div>
-           <button className="btn-secondary gap-3 px-8 text-xs">
+           <button onClick={exportPayrollCSV} className="btn-secondary gap-3 px-8 text-xs">
              <Download size={18} /> Export Payroll
            </button>
         </div>
@@ -154,7 +179,7 @@ const Payroll = () => {
                        </div>
                        <div>
                           <p className="text-sm font-bold text-foreground">{record.worker_name}</p>
-                          <p className="text-[10px] text-muted-foreground font-bold tracking-tight uppercase">TRN-PY-{record.id}</p>
+                          <p className="text-[10px] text-muted-foreground font-bold tracking-tight uppercase">TRN-PY-{record.id?.toString().slice(-6).toUpperCase()}</p>
                        </div>
                     </div>
                   </td>
@@ -303,8 +328,15 @@ const Payroll = () => {
                  <button onClick={() => window.print()} className="btn-secondary flex-1 py-4 text-xs flex items-center justify-center gap-3">
                    <Download size={18} /> Download PDF
                  </button>
-                 <button className="btn-primary flex-1 py-4 text-xs flex items-center justify-center gap-3">
-                   <RefreshCw size={18} /> Verify Payment
+                 <button 
+                   onClick={() => {
+                     updateStatus(selectedPayslip.id, 'paid');
+                     setSelectedPayslip(prev => ({ ...prev, status: 'paid' }));
+                   }}
+                   disabled={selectedPayslip.status === 'paid'}
+                   className="btn-primary flex-1 py-4 text-xs flex items-center justify-center gap-3 disabled:opacity-60"
+                 >
+                   <CheckCircle2 size={18} /> {selectedPayslip.status === 'paid' ? 'Payment Verified' : 'Verify Payment'}
                  </button>
               </div>
             </motion.div>

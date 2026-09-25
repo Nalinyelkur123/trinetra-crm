@@ -5,8 +5,11 @@ import axios from 'axios';
 
 const Shifts = () => {
   const [shifts, setShifts] = useState([]);
+  const [workers, setWorkers] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
     worker_id: '',
     assignment_id: '',
@@ -18,7 +21,21 @@ const Shifts = () => {
 
   useEffect(() => {
     fetchShifts();
+    fetchMetadata();
   }, []);
+
+  const fetchMetadata = async () => {
+    try {
+      const [workerRes, assignRes] = await Promise.all([
+        axios.get('/api/workers'),
+        axios.get('/api/assignments')
+      ]);
+      setWorkers(Array.isArray(workerRes.data) ? workerRes.data : []);
+      setAssignments(Array.isArray(assignRes.data) ? assignRes.data : []);
+    } catch (err) {
+      console.error('Failed to load shift metadata', err);
+    }
+  };
 
   const fetchShifts = async () => {
     try {
@@ -33,6 +50,11 @@ const Shifts = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
+    if (!formData.worker_id) {
+      setFormError('Please select a worker.');
+      return;
+    }
     try {
       await axios.post('/api/shifts', formData);
       setShowForm(false);
@@ -46,7 +68,8 @@ const Shifts = () => {
       });
       fetchShifts();
     } catch (err) {
-      console.error('Failed to create shift');
+      const msg = err.response?.data?.error || 'Failed to create shift';
+      setFormError(typeof msg === 'object' ? msg.message : msg);
     }
   };
 
@@ -68,7 +91,7 @@ const Shifts = () => {
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setFormError(''); }}
           className="px-6 py-3 bg-primary text-white font-bold rounded-2xl flex items-center gap-2"
         >
           <Plus size={20} /> Create Shift
@@ -77,19 +100,45 @@ const Shifts = () => {
 
       {showForm && (
         <motion.form onSubmit={handleSubmit} className="card-premium p-8 space-y-6">
+          {formError && (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 text-xs font-bold flex items-center gap-2">
+              <AlertCircle size={16} /> {formError}
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold mb-2">Worker ID</label>
-              <input
-                type="number"
+              <label className="block text-sm font-bold mb-2">Worker *</label>
+              <select
                 value={formData.worker_id}
                 onChange={(e) => setFormData({ ...formData, worker_id: e.target.value })}
                 className="input-field w-full py-3 px-4"
                 required
-              />
+              >
+                <option value="">Select Worker</option>
+                {workers.map(w => (
+                  <option key={w.id || w._id} value={w.id || w._id}>
+                    {w.name} ({w.job_role || 'Worker'})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2">Shift Date</label>
+              <label className="block text-sm font-bold mb-2">Project Assignment</label>
+              <select
+                value={formData.assignment_id}
+                onChange={(e) => setFormData({ ...formData, assignment_id: e.target.value })}
+                className="input-field w-full py-3 px-4"
+              >
+                <option value="">No Assignment (General)</option>
+                {assignments.map(a => (
+                  <option key={a.id || a._id} value={a.id || a._id}>
+                    {a.name || a.assignment_name || 'Assignment'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2">Shift Date *</label>
               <input
                 type="date"
                 value={formData.shift_date}
@@ -97,6 +146,19 @@ const Shifts = () => {
                 className="input-field w-full py-3 px-4"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2">Shift Type</label>
+              <select
+                value={formData.shift_type}
+                onChange={(e) => setFormData({ ...formData, shift_type: e.target.value })}
+                className="input-field w-full py-3 px-4"
+              >
+                <option value="General">General</option>
+                <option value="Morning">Morning</option>
+                <option value="Evening">Evening</option>
+                <option value="Night">Night</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-bold mb-2">Start Time</label>
@@ -118,7 +180,7 @@ const Shifts = () => {
             </div>
           </div>
           <div className="flex gap-4">
-            <button type="submit" className="px-6 py-3 bg-primary text-white font-bold rounded-xl">Create</button>
+            <button type="submit" className="px-6 py-3 bg-primary text-white font-bold rounded-xl">Create Shift</button>
             <button type="button" onClick={() => setShowForm(false)} className="px-6 py-3 bg-secondary rounded-xl">Cancel</button>
           </div>
         </motion.form>

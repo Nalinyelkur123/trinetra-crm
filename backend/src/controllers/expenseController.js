@@ -15,16 +15,21 @@ const getExpenses = async (req, res) => {
   }
 };
 
+const mongoose = require('mongoose');
+
 const createExpense = async (req, res) => {
   const { client_id, assignment_id, category, amount, date, description } = req.body;
   const company_id = req.user?.company_id;
   try {
+    const validClient = (client_id && mongoose.Types.ObjectId.isValid(client_id)) ? client_id : null;
+    const validAssignment = (assignment_id && mongoose.Types.ObjectId.isValid(assignment_id)) ? assignment_id : null;
+
     const expense = await Expense.create({
-      client_id: client_id || null, 
-      assignment_id: assignment_id || null, 
-      category, 
-      amount, 
-      date, 
+      client_id: validClient, 
+      assignment_id: validAssignment, 
+      category: category || 'Site Operations', 
+      amount: parseFloat(amount) || 0, 
+      date: date ? new Date(date) : new Date(), 
       description, 
       company_id
     });

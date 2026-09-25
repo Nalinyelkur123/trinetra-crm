@@ -45,6 +45,29 @@ const AuditLogs = () => {
     setCurrentPage(1);
   }, [searchTerm]);
 
+  const exportAuditLogsCSV = () => {
+    if (!logs.length) {
+      alert('No audit logs to export.');
+      return;
+    }
+    const headers = ['Timestamp', 'Initiator', 'Action', 'Target Type', 'Target ID'];
+    const rows = logs.map(l => [
+      `"${new Date(l.timestamp || l.createdAt).toISOString()}"`,
+      `"${l.user_name || l.user_id?.name || 'System'}"`,
+      `"${l.action || ''}"`,
+      `"${l.target_type || ''}"`,
+      `"${l.target_id || ''}"`
+    ]);
+    const csv = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encoded = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', encoded);
+    link.setAttribute('download', `audit_trail_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-10">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -56,7 +79,7 @@ const AuditLogs = () => {
            <button onClick={fetchLogs} className="p-3 bg-card border border-border rounded-xl hover:text-primary transition-all">
              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
            </button>
-           <button className="btn-secondary gap-3 px-8 text-xs">
+           <button onClick={exportAuditLogsCSV} className="btn-secondary gap-3 px-8 text-xs">
             <Download size={18} /> Export Audit Trail
           </button>
         </div>

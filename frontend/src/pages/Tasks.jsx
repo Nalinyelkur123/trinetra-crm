@@ -5,8 +5,11 @@ import axios from 'axios';
 
 const Tasks = () => {
   const [tasks, setTasks] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [formError, setFormError] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [formData, setFormData] = useState({
     assignment_id: '',
@@ -19,7 +22,21 @@ const Tasks = () => {
 
   useEffect(() => {
     fetchTasks();
+    fetchMetadata();
   }, []);
+
+  const fetchMetadata = async () => {
+    try {
+      const [assignRes, workerRes] = await Promise.all([
+        axios.get('/api/assignments'),
+        axios.get('/api/workers')
+      ]);
+      setAssignments(Array.isArray(assignRes.data) ? assignRes.data : []);
+      setWorkers(Array.isArray(workerRes.data) ? workerRes.data : []);
+    } catch (err) {
+      console.error('Failed to fetch task metadata', err);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -35,13 +52,19 @@ const Tasks = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
+    if (!formData.assignment_id) {
+      setFormError('Please select a project assignment.');
+      return;
+    }
     try {
       await axios.post('/api/tasks', formData);
       setShowForm(false);
       setFormData({ assignment_id: '', worker_id: '', title: '', description: '', priority: 'medium', due_date: '' });
       fetchTasks();
     } catch (err) {
-      console.error('Failed to create task');
+      const msg = err.response?.data?.error || 'Failed to create task';
+      setFormError(typeof msg === 'object' ? msg.message : msg);
     }
   };
 
@@ -81,7 +104,7 @@ const Tasks = () => {
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setFormError(''); }}
           className="px-6 py-3 bg-primary text-white font-bold rounded-2xl flex items-center gap-2"
         >
           <Plus size={20} /> Create Task
@@ -90,9 +113,14 @@ const Tasks = () => {
 
       {showForm && (
         <motion.form onSubmit={handleSubmit} className="card-premium p-8 space-y-6">
+          {formError && (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 text-xs font-bold flex items-center gap-2">
+              <AlertCircle size={16} /> {formError}
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold mb-2">Task Title</label>
+              <label className="block text-sm font-bold mb-2">Task Title *</label>
               <input
                 type="text"
                 value={formData.title}
@@ -101,6 +129,37 @@ const Tasks = () => {
                 placeholder="Enter task title"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2">Project Assignment *</label>
+              <select
+                value={formData.assignment_id}
+                onChange={(e) => setFormData({ ...formData, assignment_id: e.target.value })}
+                className="input-field w-full py-3 px-4"
+                required
+              >
+                <option value="">Select Assignment</option>
+                {assignments.map(a => (
+                  <option key={a.id || a._id} value={a.id || a._id}>
+                    {a.name || a.assignment_name || 'Assignment'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold mb-2">Assignee (Worker)</label>
+              <select
+                value={formData.worker_id}
+                onChange={(e) => setFormData({ ...formData, worker_id: e.target.value })}
+                className="input-field w-full py-3 px-4"
+              >
+                <option value="">Unassigned (Open Pool)</option>
+                {workers.map(w => (
+                  <option key={w.id || w._id} value={w.id || w._id}>
+                    {w.name} ({w.job_role || 'Worker'})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-bold mb-2">Priority</label>
@@ -115,22 +174,13 @@ const Tasks = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2">Due Date</label>
+              <label className="block text-sm font-bold mb-2">Due Date *</label>
               <input
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                 className="input-field w-full py-3 px-4"
                 required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold mb-2">Worker ID</label>
-              <input
-                type="number"
-                value={formData.worker_id}
-                onChange={(e) => setFormData({ ...formData, worker_id: e.target.value })}
-                className="input-field w-full py-3 px-4"
               />
             </div>
           </div>
@@ -144,7 +194,7 @@ const Tasks = () => {
             />
           </div>
           <div className="flex gap-4">
-            <button type="submit" className="px-6 py-3 bg-primary text-white font-bold rounded-xl">Create</button>
+            <button type="submit" className="px-6 py-3 bg-primary text-white font-bold rounded-xl">Create Task</button>
             <button type="button" onClick={() => setShowForm(false)} className="px-6 py-3 bg-secondary rounded-xl">Cancel</button>
           </div>
         </motion.form>

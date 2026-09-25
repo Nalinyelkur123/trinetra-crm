@@ -1,7 +1,7 @@
 const { Attendance, Worker, User } = require('../models');
 
 const markAttendance = async (req, res) => {
-  const { worker_id, status, location, date: reqDate, shift_type, overtime_hours } = req.body;
+  const { worker_id, status, location, date: reqDate, shift_type, overtime_hours, check_in_time, check_out_time } = req.body;
   const date = reqDate ? new Date(reqDate) : new Date(new Date().toISOString().split('T')[0]);
 
   try {
@@ -9,32 +9,41 @@ const markAttendance = async (req, res) => {
     const currentTime = new Date();
     const currentHMS = currentTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
-    let finalStatus = status;
-    if (status === 'present' && workerDetails?.shift_start) {
+    let finalStatus = status || 'present';
+    if (status === 'present' && workerDetails?.shift_start && !req.body.status_override) {
       if (currentHMS > workerDetails.shift_start) {
         finalStatus = 'late';
       }
     }
 
+    const checkIn = check_in_time ? new Date(check_in_time) : ((finalStatus === 'present' || finalStatus === 'late') ? currentTime : null);
+    const checkOut = check_out_time ? new Date(check_out_time) : null;
+
     const existing = await Attendance.findOne({ worker_id, date });
 
     if (existing) {
       existing.status = finalStatus;
-      existing.location = location || 'Main HQ';
-      if ((finalStatus === 'present' || finalStatus === 'late') && !existing.check_in_time) {
+      existing.location = location || existing.location || 'Main HQ';
+      if (check_in_time) {
+        existing.check_in_time = checkIn;
+      } else if ((finalStatus === 'present' || finalStatus === 'late') && !existing.check_in_time) {
         existing.check_in_time = currentTime;
       }
-      existing.shift_type = shift_type || 'General';
-      existing.overtime_hours = overtime_hours || 0;
+      if (check_out_time) {
+        existing.check_out_time = checkOut;
+      }
+      existing.shift_type = shift_type || existing.shift_type || 'General';
+      existing.overtime_hours = overtime_hours !== undefined ? overtime_hours : existing.overtime_hours;
       await existing.save();
-      res.json({ message: 'Attendance updated', status: finalStatus });
+      res.json({ message: 'Attendance updated', status: finalStatus, attendanceId: existing._id });
     } else {
-      await Attendance.create({
+      const created = await Attendance.create({
         worker_id, date, status: finalStatus, location: location || 'Main HQ',
-        check_in_time: (finalStatus === 'present' || finalStatus === 'late') ? currentTime : null,
+        check_in_time: checkIn,
+        check_out_time: checkOut,
         shift_type: shift_type || 'General', overtime_hours: overtime_hours || 0
       });
-      res.status(201).json({ message: 'Attendance marked', status: finalStatus });
+      res.status(201).json({ message: 'Attendance marked', status: finalStatus, attendanceId: created._id });
     }
   } catch (error) {
     res.status(500).json({ error: error.message });

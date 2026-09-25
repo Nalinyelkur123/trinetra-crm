@@ -58,17 +58,18 @@ const Billing = () => {
       return;
     }
     try {
-      // We can use a simulation endpoint or just a POST /generate that returns the data without saving
-      // But since we don't have a simulation endpoint, we'll do a simple local calculation or assume defaults
-      // For now, let's fetch the billing rate and count attendance if we had an endpoint for that.
-      // Alternatively, we can just let the user enter it if they want "Manual".
-      // Let's assume a default rate of 1000 if not found.
-      const client = clients.find(c => c.id == formData.client_id);
-      const rate = client?.billing_rate || 0;
-      // Simulate 24 days as requested by user earlier or just default to 1 day
-      const days = 1; 
-      const amount = rate * days;
-      const gst = amount * 0.18;
+      const client = clients.find(c => (c.id === formData.client_id || c._id === formData.client_id));
+      const rate = client?.billing_rate || 1000;
+      
+      const d1 = new Date(formData.issue_date);
+      const d2 = new Date(formData.due_date);
+      const diffTime = Math.abs(d2 - d1);
+      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      const days = diffDays > 0 && diffDays < 365 ? diffDays : 30;
+      const workerCount = client?.worker_count || 1;
+      
+      const amount = (formData.amount && isManual) ? parseFloat(formData.amount) : (rate * days * workerCount);
+      const gst = Math.round(amount * 0.18);
       setFormData({
         ...formData,
         amount: amount,
@@ -82,13 +83,23 @@ const Billing = () => {
 
   const handleFinalize = async (e) => {
     e.preventDefault();
+    if (!formData.client_id) {
+      alert('Please select a client');
+      return;
+    }
     try {
-      // Use the generic POST / endpoint for manual/edited invoices
-      await axios.post('/api/invoices', formData);
+      await axios.post('/api/invoices', {
+        ...formData,
+        client_id: formData.client_id,
+        assignment_id: formData.assignment_id || null,
+        amount: parseFloat(formData.amount) || 0,
+        gst_amount: parseFloat(formData.gst_amount) || 0,
+        total_amount: parseFloat(formData.total_amount) || 0
+      });
       setShowModal(false);
       fetchData();
     } catch (err) {
-      alert('Invoice finalization failed');
+      alert(err.response?.data?.error || 'Invoice finalization failed');
     }
   };
 
@@ -322,7 +333,7 @@ const Billing = () => {
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-secondary/30 transition-all group">
                     <td className="px-8 py-6">
-                       <span className="text-xs font-black text-primary bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">#INV-{inv.id}</span>
+                       <span className="text-xs font-black text-primary bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">#INV-{inv.id?.toString().slice(-6).toUpperCase()}</span>
                     </td>
                     <td className="px-8 py-6">
                       <p className="text-sm font-black text-foreground">{inv.client_name}</p>

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Task, Notification } = require('../models');
 
 const createTask = async (req, res) => {
@@ -9,8 +10,10 @@ const createTask = async (req, res) => {
       return res.status(400).json({ error: 'Assignment, title, and due date are required' });
     }
     
+    const validWorker = (worker_id && mongoose.Types.ObjectId.isValid(worker_id)) ? worker_id : null;
+
     const task = await Task.create({
-      assignment_id, worker_id: worker_id || null, title, description, priority: priority || 'medium', due_date, assigned_by
+      assignment_id, worker_id: validWorker, title, description, priority: priority || 'medium', due_date, assigned_by
     });
     
     if (worker_id) {

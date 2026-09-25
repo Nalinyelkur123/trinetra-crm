@@ -75,9 +75,29 @@ const Documents = () => {
     currentPage * itemsPerPage
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  const exportDocumentsCSV = () => {
+    if (!documents.length) {
+      alert('No documents to export.');
+      return;
+    }
+    const headers = ['Document ID', 'Personnel', 'Document Type', 'Status', 'Expiry Date', 'Uploaded At'];
+    const rows = documents.map(d => [
+      `"DOC-${d.id || ''}"`,
+      `"${d.worker_name || 'Worker'}"`,
+      `"${d.type || ''}"`,
+      `"${d.status || ''}"`,
+      `"${d.expiry_date ? new Date(d.expiry_date).toLocaleDateString() : 'N/A'}"`,
+      `"${new Date(d.createdAt || Date.now()).toLocaleDateString()}"`
+    ]);
+    const csv = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encoded = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', encoded);
+    link.setAttribute('download', `statutory_documents_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-10 max-w-[1400px] mx-auto pb-20">
@@ -112,7 +132,7 @@ const Documents = () => {
               <ShieldCheck className="text-primary" size={20} />
               <h3 className="text-sm font-black uppercase tracking-widest">Document Auditing Matrix</h3>
            </div>
-           <button className="btn-secondary gap-3 px-8 text-xs">
+           <button onClick={exportDocumentsCSV} className="btn-secondary gap-3 px-8 text-xs">
               <Download size={18} /> Bulk Statutory Export
            </button>
         </div>
@@ -170,11 +190,17 @@ const Documents = () => {
                     </div>
                   </td>
                   <td className="px-8 py-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                    {new Date(doc.created_at).toLocaleDateString()}
+                    {new Date(doc.createdAt || doc.created_at || Date.now()).toLocaleDateString()}
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2">
-                       <a href={doc.file_url} target="_blank" rel="noreferrer" className="p-2.5 bg-secondary rounded-xl text-muted-foreground hover:text-primary transition-all shadow-sm">
+                       <a 
+                         href={doc.file_url?.startsWith('http') ? doc.file_url : `/${doc.file_url?.replace(/^\//, '')}`} 
+                         target="_blank" 
+                         rel="noreferrer" 
+                         className="p-2.5 bg-secondary rounded-xl text-muted-foreground hover:text-primary transition-all shadow-sm"
+                         title="View Document"
+                       >
                           <Eye size={18} />
                        </a>
                         <button 

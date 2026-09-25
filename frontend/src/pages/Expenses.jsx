@@ -53,9 +53,9 @@ const Expenses = () => {
     try {
       const payload = {
         ...formData,
-        client_id: formData.client_id ? parseInt(formData.client_id) : null,
-        assignment_id: formData.assignment_id ? parseInt(formData.assignment_id) : null,
-        amount: parseFloat(formData.amount)
+        client_id: formData.client_id || null,
+        assignment_id: formData.assignment_id || null,
+        amount: parseFloat(formData.amount) || 0
       };
       
       await axios.post('/api/expenses', payload);
