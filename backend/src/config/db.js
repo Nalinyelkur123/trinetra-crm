@@ -17,7 +17,8 @@ const initDb = async () => {
   if (!cached.promise || mongoose.connection.readyState === 0) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 10000
+      serverSelectionTimeoutMS: 10000,
+      dbName: process.env.MONGODB_DB_NAME || 'trinetra'
     };
 
     cached.promise = mongoose.connect(process.env.MONGODB_URI, opts)

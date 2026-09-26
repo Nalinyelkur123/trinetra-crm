@@ -22,7 +22,8 @@ import Shifts from './pages/Shifts';
 import Tasks from './pages/Tasks';
 
 // Configure Axios Defaults
-axios.defaults.baseURL = ''; // Use relative paths for proxy
+const apiUrl = import.meta.env.VITE_API_URL;
+axios.defaults.baseURL = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
 
 // Setup interceptors once at module level (not inside component to prevent duplication)
 let requestInterceptorId = null;
