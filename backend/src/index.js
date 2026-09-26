@@ -124,6 +124,12 @@ app.get('/', (req, res) => {
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
 
+// Global Error Handler (handles Multer errors, file upload limits, etc.)
+app.use((err, req, res, next) => {
+  console.error('Server Request Error:', err.message);
+  res.status(err.status || 400).json({ error: err.message || 'An error occurred during request processing' });
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

@@ -19,6 +19,18 @@ const Documents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  const getDocumentUrl = (url) => {
+    if (!url) return '#';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
+    const uploadIndex = url.indexOf('/uploads/');
+    if (uploadIndex !== -1) {
+      return `${baseUrl}${url.substring(uploadIndex)}`;
+    }
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${cleanPath}`;
+  };
+
   const fetchDocuments = async () => {
     setLoading(true);
     try {
@@ -195,7 +207,7 @@ const Documents = () => {
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2">
                        <a 
-                         href={doc.file_url?.startsWith('http') ? doc.file_url : `/${doc.file_url?.replace(/^\//, '')}`} 
+                         href={getDocumentUrl(doc.file_url)} 
                          target="_blank" 
                          rel="noreferrer" 
                          className="p-2.5 bg-secondary rounded-xl text-muted-foreground hover:text-primary transition-all shadow-sm"

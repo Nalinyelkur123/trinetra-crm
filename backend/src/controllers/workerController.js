@@ -30,10 +30,18 @@ const addWorker = async (req, res) => {
 
     if (req.files) {
       if (req.files.aadhaar_file) {
-        await Document.create({ worker_id: user._id, type: 'aadhaar', file_url: req.files.aadhaar_file[0].path });
+        await Document.create({ 
+          worker_id: user._id, 
+          type: 'aadhaar', 
+          file_url: `/uploads/${req.files.aadhaar_file[0].filename}` 
+        });
       }
       if (req.files.pan_file) {
-        await Document.create({ worker_id: user._id, type: 'pan', file_url: req.files.pan_file[0].path });
+        await Document.create({ 
+          worker_id: user._id, 
+          type: 'pan', 
+          file_url: `/uploads/${req.files.pan_file[0].filename}` 
+        });
       }
     }
 
@@ -71,11 +79,19 @@ const updateWorker = async (req, res) => {
     if (req.files) {
       if (req.files.aadhaar_file) {
         await Document.deleteMany({ worker_id: id, type: 'aadhaar' });
-        await Document.create({ worker_id: id, type: 'aadhaar', file_url: req.files.aadhaar_file[0].path });
+        await Document.create({ 
+          worker_id: id, 
+          type: 'aadhaar', 
+          file_url: `/uploads/${req.files.aadhaar_file[0].filename}` 
+        });
       }
       if (req.files.pan_file) {
         await Document.deleteMany({ worker_id: id, type: 'pan' });
-        await Document.create({ worker_id: id, type: 'pan', file_url: req.files.pan_file[0].path });
+        await Document.create({ 
+          worker_id: id, 
+          type: 'pan', 
+          file_url: `/uploads/${req.files.pan_file[0].filename}` 
+        });
       }
     }
 
