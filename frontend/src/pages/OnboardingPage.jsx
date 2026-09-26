@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   User, Phone, Mail, MapPin, Briefcase, Calendar, 
   ShieldCheck, Landmark, GraduationCap, ArrowLeft, Loader2, Save, 
-  Activity, Smartphone, Upload, FileText, AlertCircle
+  Activity, Smartphone, Upload, FileText, AlertCircle, Building2
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -41,7 +41,13 @@ const OnboardingPage = () => {
       const fetchDetails = async () => {
         try {
           const res = await axios.get(`/api/workers/${id}`);
-          setFormData(prev => ({ ...prev, ...res.data }));
+          const data = res.data;
+          setFormData(prev => ({ 
+            ...prev, 
+            ...data,
+            client_id: data.client_id?._id || data.client_id || '',
+            assignment_id: data.assignment_id?._id || data.assignment_id || ''
+          }));
         } catch (err) {
           setError('Failed to load personnel details');
         } finally {
@@ -297,21 +303,28 @@ const OnboardingPage = () => {
               <input name="skills" value={formData.skills} onChange={handleChange} className="input-field w-full" placeholder="Separated by commas" />
             </div>
             <div className="space-y-2">
-              <label className="caption ml-1">Assigned Client</label>
+              <label className="caption ml-1 font-bold flex items-center gap-1.5 text-primary">
+                <Building2 size={14} /> Assign Client
+              </label>
               <select 
                 name="client_id" 
                 value={formData.client_id || ''} 
-                onChange={handleChange} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, client_id: val, assignment_id: '' }));
+                }} 
                 className="input-field w-full appearance-none"
               >
-                <option value="">Select Primary Client</option>
+                <option value="">No Client (Unassigned Pool)</option>
                 {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id || c._id} value={c.id || c._id}>
+                    {c.name} {c.contact_person ? `(${c.contact_person})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
-              <label className="caption ml-1">Operational Site (Optional)</label>
+              <label className="caption ml-1 font-bold">Operational Site / Assignment (Optional)</label>
               <select 
                 name="assignment_id" 
                 value={formData.assignment_id || ''} 
@@ -320,9 +333,16 @@ const OnboardingPage = () => {
                 disabled={!formData.client_id}
               >
                 <option value="">Select Specific Site</option>
-                {assignments.filter(a => a.client_id == formData.client_id).map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
+                {assignments
+                  .filter(a => {
+                    const aClientId = a.client_id?._id || a.client_id;
+                    return String(aClientId) === String(formData.client_id);
+                  })
+                  .map(a => (
+                    <option key={a.id || a._id} value={a.id || a._id}>
+                      {a.name} {a.location ? `• ${a.location}` : ''}
+                    </option>
+                  ))}
               </select>
             </div>
             <div className="space-y-2">

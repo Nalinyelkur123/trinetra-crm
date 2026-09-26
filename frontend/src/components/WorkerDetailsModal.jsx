@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, User, Shield, Landmark, Award, Phone, Mail, 
   MapPin, Calendar, CreditCard, BookOpen, Briefcase,
-  FileText, Download, CheckCircle2, Clock
+  FileText, Download, CheckCircle2, Clock, Building2
 } from 'lucide-react';
 
 const WorkerDetailsModal = ({ isOpen, onClose, worker }) => {
@@ -17,6 +17,8 @@ const WorkerDetailsModal = ({ isOpen, onClose, worker }) => {
         { label: 'Full Legal Name', value: worker.name, icon: User },
         { label: 'Identity Code', value: worker.id, icon: Shield },
         { label: 'Strategic Role', value: worker.job_role || worker.role, icon: Briefcase },
+        { label: 'Assigned Client', value: worker.client_name || 'No Client Assigned', icon: Building2 },
+        { label: 'Operational Site', value: worker.assignment_name || 'General Deployment', icon: MapPin },
         { label: 'Deployment Status', value: worker.status, icon: CheckCircle2, isStatus: true },
         { label: 'Verified Phone', value: worker.phone, icon: Phone },
         { label: 'Electronic Mail', value: worker.email || 'N/A', icon: Mail },
